@@ -13,6 +13,7 @@ import type {
 import { agentPipeline, INITIAL_AGENT_NODES } from './services/agentPipeline';
 import { voiceService } from './services/voiceService';
 import { databaseService } from './services/databaseService';
+import { ragService } from './services/ragService';
 import { Navbar } from './components/Navbar';
 import { HeroLanding } from './components/HeroLanding';
 import { AgentWorkflowVisualizer } from './components/AgentWorkflowVisualizer';
@@ -383,6 +384,77 @@ export const App: React.FC = () => {
     handleProcessUserInput(command);
   };
 
+  const handleUploadDocument = async (file: File) => {
+    try {
+      voiceService.stopListening();
+      voiceService.stopSpeaking();
+      setMicState('PROCESSING');
+
+      // 1. Create User turn indicating document uploaded
+      const userTurn: DialogueTurn = {
+        id: `turn-doc-${Date.now()}`,
+        speaker: 'user',
+        text: `📄 Uploaded Document: "${file.name}" (${(file.size / 1024).toFixed(1)} KB)`,
+        translation: `Uploaded document for RAG ingestion: "${file.name}"`,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        agentNode: 'understanding_agent'
+      };
+      const updatedHist = [...historyRef.current, userTurn];
+      setHistory(updatedHist);
+
+      // 2. Run RAG extraction and scheme knowledge matching
+      const ragResult = await ragService.processUploadedDocument(file, currentLanguageRef.current);
+
+      // 3. Update candidate slots in pipeline
+      agentPipeline.setCitizenName(ragResult.extractedData.candidateName);
+      agentPipeline.setLocation(ragResult.extractedData.location);
+      agentPipeline.setEducation(ragResult.extractedData.education);
+
+      // 4. Update profile and conversation state to RESULTS_VIEW
+      setProfile(ragResult.profile);
+      setConversationState('RESULTS_VIEW');
+      setActiveNodeId('coordinator_agent');
+      setBeneficiaryCount(databaseService.getAllBeneficiaries().length);
+
+      // Update multi-agent visualizer nodes to completed
+      setAgentNodes(prev => prev.map(n => ({ ...n, status: 'completed' })));
+
+      // 5. Create AI turn with RAG summary
+      const aiTurn: DialogueTurn = {
+        id: `turn-rag-${Date.now()}`,
+        speaker: 'ai',
+        text: ragResult.summaryMessage,
+        translation: `Namaste ${ragResult.extractedData.candidateName}! Document analyzed via RAG. Your profile, skill gaps, and schemes are synthesized below!`,
+        audioText: ragResult.summaryMessage,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        agentNode: 'coordinator_agent',
+        reasoningStep: {
+          step: 'RAG Document & Scheme Knowledge Ingestion',
+          observation: `Processed "${file.name}": Extracted ${ragResult.extractedData.candidateName}, ${ragResult.extractedData.occupation}, ${ragResult.extractedData.experienceYears} yrs exp.`,
+          deduplicationCheck: 'Matched NSQF aligned government schemes via vector RAG knowledge retrieval.',
+          decision: 'Rendered instant Kaushal Digital Passport, Skill Gap, and Scheme Recommendations',
+          confidence: 99
+        }
+      };
+
+      const finalHist = [...updatedHist, aiTurn];
+      setHistory(finalHist);
+      setMicState('IDLE');
+
+      if (audioEnabled) {
+        voiceService.speak(
+          ragResult.summaryMessage,
+          currentLanguageRef.current,
+          () => setMicState('RESPONDING'),
+          () => setMicState('IDLE')
+        );
+      }
+    } catch (err) {
+      console.error('RAG document processing error:', err);
+      setMicState('IDLE');
+    }
+  };
+
   const handleSelectCandidate = (candidate: BeneficiaryRecord) => {
     setActiveMode('voice');
     setProfile(candidate.profile);
@@ -532,6 +604,7 @@ export const App: React.FC = () => {
                   history={history}
                   onToggleMic={handleToggleMic}
                   onSendMessage={handleProcessUserInput}
+                  onUploadDocument={handleUploadDocument}
                   onToggleAudio={() => setAudioEnabled(!audioEnabled)}
                   onToggleAutoListen={() => setAutoListen(!autoListen)}
                   onReplayAudio={(text) =>

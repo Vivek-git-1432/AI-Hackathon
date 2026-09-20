@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   Mic, 
   Volume2, 
@@ -7,7 +7,8 @@ import {
   RotateCcw, 
   Radio,
   Headphones,
-  CheckCircle2
+  CheckCircle2,
+  UploadCloud
 } from 'lucide-react';
 import type { SupportedLanguage, ConversationState, MicState, DialogueTurn } from '../types';
 import { I18N_DATA } from '../data/i18n';
@@ -23,6 +24,7 @@ interface VoiceConversationHubProps {
   history: DialogueTurn[];
   onToggleMic: () => void;
   onSendMessage: (text: string) => void;
+  onUploadDocument?: (file: File) => void;
   onToggleAudio: () => void;
   onToggleAutoListen: () => void;
   onReplayAudio: (text: string) => void;
@@ -40,12 +42,22 @@ export const VoiceConversationHub: React.FC<VoiceConversationHubProps> = ({
   history: _history,
   onToggleMic,
   onSendMessage,
+  onUploadDocument,
   onToggleAudio,
   onToggleAutoListen,
   onResetSession
 }) => {
   const [inputText, setInputText] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const t = I18N_DATA[currentLanguage] || I18N_DATA.kn;
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && onUploadDocument) {
+      onUploadDocument(file);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   const handleTextSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -239,19 +251,36 @@ export const VoiceConversationHub: React.FC<VoiceConversationHubProps> = ({
           </div>
         </div>
 
-        {/* Manual Fallback Text Input Bar */}
+        {/* Manual Fallback Text Input Bar + RAG Document Upload */}
         <form onSubmit={handleTextSubmit} className="w-full flex items-center gap-2">
+          {/* Hidden File Input for RAG Document Upload */}
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            accept=".pdf,.doc,.docx,.txt,.json,.md,.csv"
+            className="hidden"
+          />
+
+          {/* RAG Document Upload Button */}
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="p-2 sm:px-2.5 sm:py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 hover:text-amber-300 border border-amber-500/30 hover:border-amber-500/60 font-semibold text-xs flex items-center gap-1.5 transition-all shadow-xs cursor-pointer flex-shrink-0"
+            title="Upload Resume / Document / Bio-Data (RAG AI Auto-Extraction)"
+          >
+            <UploadCloud className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline text-[11px] font-mono font-bold">RAG Upload</span>
+          </button>
+
           <input
             type="text"
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             placeholder={
-              currentLanguage === 'kn' ? 'ಅಥವಾ ಸಂದೇಶವನ್ನು ಇಲ್ಲಿ ಟೈಪ್ ಮಾಡಿ...' :
-              currentLanguage === 'hi' ? 'या अपना संदेश यहाँ टाइप करें...' :
-              currentLanguage === 'te' ? 'లేదా మీ సందేశాన్ని ఇక్కడ టైప్ చేయండి...' :
-              currentLanguage === 'ta' ? 'அல்லது உங்கள் செய்தியை இங்கே தட்டச்சு செய்யவும்...' :
-              currentLanguage === 'mr' ? 'किंवा तुमचा संदेश येथे टाइप करा...' :
-              'Or type your message here...'
+              currentLanguage === 'kn' ? 'ಅಥವಾ ಸಂದೇಶ ಟೈಪ್ ಮಾಡಿ / ರೆಸ್ಯೂಮೆ ಅಪ್‌ಲೋಡ್ ಮಾಡಿ...' :
+              currentLanguage === 'hi' ? 'संदेश टाइप करें या बायोडाटा/दस्तावेज़ अपलोड करें...' :
+              'Type message or upload resume / document...'
             }
             className="flex-1 bg-slate-950/90 border border-slate-700/80 rounded-xl px-3 py-2 text-xs sm:text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500"
           />
