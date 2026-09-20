@@ -1,5 +1,5 @@
 import React from 'react';
-import { Mic, Globe, Users, BarChart3, Sparkles, Settings, PhoneCall, Award } from 'lucide-react';
+import { Mic, Globe, Users, BarChart3, Sparkles, Settings, PhoneCall } from 'lucide-react';
 import type { SupportedLanguage } from '../types';
 import { SUPPORTED_LANGUAGES } from '../data/languages';
 import { I18N_DATA } from '../data/i18n';
@@ -10,7 +10,7 @@ interface NavbarProps {
   activeMode: 'voice' | 'field' | 'ivr' | 'dashboard';
   onSelectMode: (mode: 'voice' | 'field' | 'ivr' | 'dashboard') => void;
   onOpenSettings: () => void;
-  onOpenValidator: () => void;
+  onOpenValidator?: () => void;
   onOpenRegistry: () => void;
   beneficiaryCount?: number;
   hasApiKey: boolean;
@@ -24,7 +24,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   activeMode,
   onSelectMode,
   onOpenSettings,
-  onOpenValidator,
   onOpenRegistry,
   beneficiaryCount = 3,
   hasApiKey,
@@ -137,17 +136,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30">
               {beneficiaryCount}
             </span>
-          </button>
-
-          {/* Hackathon 100% Evaluation Matrix Button */}
-          <button
-            onClick={onOpenValidator}
-            className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all bg-emerald-950/60 text-emerald-300 border border-emerald-500/50 hover:bg-emerald-900/50 shadow-sm cursor-pointer"
-            title="View 100% Solution & Evaluation Compliance Matrix"
-          >
-            <Award className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="hidden md:inline">100% Solution Matrix</span>
-            <span className="md:hidden">Matrix</span>
           </button>
 
           {/* AI Settings (API Key) Button */}

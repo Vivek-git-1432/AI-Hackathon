@@ -262,15 +262,15 @@ export const VoiceConversationHub: React.FC<VoiceConversationHubProps> = ({
             className="hidden"
           />
 
-          {/* RAG Document Upload Button */}
+          {/* Document / Resume Upload Button */}
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
             className="p-2 sm:px-2.5 sm:py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 hover:text-amber-300 border border-amber-500/30 hover:border-amber-500/60 font-semibold text-xs flex items-center gap-1.5 transition-all shadow-xs cursor-pointer flex-shrink-0"
-            title="Upload Resume / Document / Bio-Data (RAG AI Auto-Extraction)"
+            title="Upload Resume / Document / Bio-Data"
           >
             <UploadCloud className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline text-[11px] font-mono font-bold">RAG Upload</span>
+            <span className="hidden sm:inline text-[11px] font-semibold">Upload File</span>
           </button>
 
           <input
