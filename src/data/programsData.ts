@@ -716,6 +716,107 @@ export const MULTI_SECTOR_PROGRAMS_DATABASE: Record<string, MatchedProgram[]> = 
         locationMatch: 80
       }
     }
+  ],
+  // 8. STUDENT, HIGHER EDUCATION & ACADEMIC SKILLING
+  student_academic: [
+    {
+      id: 'prog-pmkvy-student-special',
+      title: 'Skill India Digital: Special Project for College Students & Young Graduates',
+      provider: 'National Skill Development Corporation (NSDC) & Ministry of Education',
+      category: 'Higher Education, Digital Skilling & Career Readiness',
+      eligibility: 'College Students, Degree / Diploma Pursuers and Young Graduates (Any Stream)',
+      matchPercentage: 97,
+      rankBadge: 'BEST MATCH',
+      whyMatched: [
+        'Tailored specifically for students seeking industry-ready NSQF certifications alongside studies',
+        'Covers foundational digital literacy, critical problem-solving, and domain-specific practicals',
+        'Direct campus placement linkages and national skill digital passport'
+      ],
+      aiExplanation: 'Recommended because your confirmed profile identifies you as a student pursuing higher education. This flagship initiative equips college students with certified practical competencies, industry mentors, and job placement pipelines.',
+      skillsGained: [
+        'Digital Productivity & Modern Software Tools',
+        'Analytical Problem Solving & Project Execution',
+        'Communication, Interview Protocol & Presentation Skills',
+        'Industry Standards & Team Collaboration'
+      ],
+      duration: '3 Months (Self-Paced Hybrid)',
+      mode: 'District Skill Development Center + Online Labs',
+      stipend: '₹1,000 / Month Direct DBT Incentive',
+      toolkitGrant: 'Official Skill India Digital Verified Badge & Resume Endorsement',
+      officialPortalUrl: 'https://www.skillindiadigital.gov.in',
+      matchFactors: {
+        occupationMatch: 98,
+        skillMatch: 96,
+        interestMatch: 98,
+        eligibilityMatch: 100,
+        locationMatch: 95
+      }
+    },
+    {
+      id: 'prog-naps-general-student',
+      title: 'National Apprenticeship Promotion Scheme (NAPS): Graduate & Diploma Apprenticeship',
+      provider: 'Ministry of Skill Development & Entrepreneurship (MSDE)',
+      category: 'Paid Industrial Apprenticeship & On-the-Job Experience',
+      eligibility: 'Students in Final Year / Recent Graduates (Engineering, Science, Arts, Commerce)',
+      matchPercentage: 92,
+      rankBadge: 'SECOND OPTION',
+      whyMatched: [
+        'Earn substantial monthly stipend while gaining hands-on corporate/industrial experience',
+        'Government co-funding ensures guaranteed on-the-job training with leading enterprises',
+        'High conversion rate to full-time permanent corporate employment'
+      ],
+      aiExplanation: 'Recommended to bridge the gap between academic theory and real-world corporate execution with verified paid apprenticeship experience.',
+      skillsGained: [
+        'Enterprise Workflow Execution & Live Operations',
+        'Technical Documentation & Business Communications',
+        'Professional Project Delivery',
+        'Workplace Safety & Compliance'
+      ],
+      duration: '6 to 12 Months Paid Apprenticeship',
+      mode: 'Corporate / Industrial Facility Placement',
+      stipend: '₹9,000 to ₹15,000 / Month Paid Industrial Stipend',
+      officialPortalUrl: 'https://www.apprenticeshipindia.gov.in',
+      matchFactors: {
+        occupationMatch: 94,
+        skillMatch: 90,
+        interestMatch: 92,
+        eligibilityMatch: 96,
+        locationMatch: 88
+      }
+    },
+    {
+      id: 'prog-futureskills-foundation',
+      title: 'FutureSkills PRIME: Emerging Technologies & AI Foundation Badge',
+      provider: 'Ministry of Electronics & IT (MeitY) and NASSCOM',
+      category: 'Emerging Tech, AI & Cloud Competencies',
+      eligibility: 'All College Students and Degree Candidates',
+      matchPercentage: 88,
+      rankBadge: 'THIRD OPTION',
+      whyMatched: [
+        'MeitY & NASSCOM industry-backed certification in cutting-edge tech',
+        'Free virtual lab environments with AI, Cloud, and Data foundations',
+        'Government subsidy upon successful course completion and assessment'
+      ],
+      aiExplanation: 'Recommended as an essential technological credential that gives students a decisive advantage in competitive placements across all modern industries.',
+      skillsGained: [
+        'AI Tools, Prompt Engineering & Cloud Basics',
+        'Data Literacy & Analytical Visualization',
+        'Cyber Hygiene & Digital Security',
+        'Agile Collaboration Frameworks'
+      ],
+      duration: '2 Months (120 Hours)',
+      mode: 'Online Virtual Labs & Assessments',
+      stipend: '₹3,000 MeitY Skill Incentive DBT',
+      toolkitGrant: '1-Year Free Developer & Cloud Tools Access',
+      officialPortalUrl: 'https://futureskillsprime.in',
+      matchFactors: {
+        occupationMatch: 90,
+        skillMatch: 86,
+        interestMatch: 90,
+        eligibilityMatch: 95,
+        locationMatch: 82
+      }
+    }
   ]
 };
 
@@ -784,7 +885,6 @@ export function getMatchedProgramsForProfile(occupation: string, aspiration: str
     combined.includes('hospitality') ||
     combined.includes('food service') ||
     combined.includes('tourism') ||
-    combined.includes('management') ||
     combined.includes('ಇವೆಂಟ್') ||
     combined.includes('ಕ್ಯಾಟರಿಂಗ್')
   ) {
@@ -854,7 +954,27 @@ export function getMatchedProgramsForProfile(occupation: string, aspiration: str
     return MULTI_SECTOR_PROGRAMS_DATABASE.tailoring_crafts;
   }
 
-  // 7. Agriculture & Farming (ONLY if explicitly containing farming terms!)
+  // 7. Student, College, Degree & Academic Candidate
+  if (
+    combined.includes('student') ||
+    combined.includes('college') ||
+    combined.includes('school') ||
+    combined.includes('study') ||
+    combined.includes('studies') ||
+    combined.includes('academic') ||
+    combined.includes('degree') ||
+    combined.includes('diploma') ||
+    combined.includes('undergrad') ||
+    combined.includes('graduate') ||
+    combined.includes('ವಿದ್ಯಾರ್ಥಿ') ||
+    combined.includes('ಸ್ಟೂಡೆಂಟ್') ||
+    combined.includes('छात्र') ||
+    combined.includes('विद्यार्थी')
+  ) {
+    return MULTI_SECTOR_PROGRAMS_DATABASE.student_academic;
+  }
+
+  // 8. Agriculture & Farming (ONLY if explicitly containing farming terms!)
   if (
     combined.includes('farm') || 
     combined.includes('agri') || 
@@ -870,6 +990,6 @@ export function getMatchedProgramsForProfile(occupation: string, aspiration: str
     return MULTI_SECTOR_PROGRAMS_DATABASE.agriculture;
   }
 
-  // 8. General Professional / Student fallback
-  return MULTI_SECTOR_PROGRAMS_DATABASE.civil_services;
+  // 9. General Student / Professional fallback
+  return MULTI_SECTOR_PROGRAMS_DATABASE.student_academic;
 }

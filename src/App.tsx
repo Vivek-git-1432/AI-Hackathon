@@ -20,7 +20,7 @@ import { SkillProfileCard } from './components/SkillProfileCard';
 import { SkillGapAnalysisCard } from './components/SkillGapAnalysisCard';
 import { ProgramRecommendations } from './components/ProgramRecommendations';
 import { Roadmap90Days } from './components/Roadmap90Days';
-import { FieldAssistantMode } from './components/FieldAssistantMode';
+import { FieldAssistantMode, type FieldQueueRecord } from './components/FieldAssistantMode';
 import { IvrHelplineMode } from './components/IvrHelplineMode';
 import { HackathonValidatorModal } from './components/HackathonValidatorModal';
 import { ImpactDashboard } from './components/ImpactDashboard';
@@ -59,6 +59,15 @@ export const App: React.FC = () => {
   const [history, setHistory] = useState<DialogueTurn[]>([]);
   const [profile, setProfile] = useState<LivelihoodProfile | undefined>();
   const [readbackPrompt, setReadbackPrompt] = useState<{ text: string; translation?: string } | null>(null);
+
+  // Field Queue Synchronized Records
+  const [fieldQueue, setFieldQueue] = useState<FieldQueueRecord[]>([
+    { id: '1', name: 'Basavaraj Patil', trade: 'Farmer / Tractor Operator', time: '10:45 AM', match: 'PMKVY 4.0 (94%)', status: 'Completed' },
+    { id: '2', name: 'Lakshmi Bai', trade: 'Tailor & Handicrafts', time: '11:15 AM', match: 'PM Vishwakarma (91%)', status: 'Completed' },
+    { id: '3', name: 'Ramesh Kumar', trade: 'Mason / Concrete Worker', time: '12:00 PM', match: 'PMAY Skill (88%)', status: 'Completed' },
+    { id: '4', name: 'Manjula S.', trade: 'Dairy Farm Worker', time: '01:30 PM', match: 'Rashtriya Gokul (92%)', status: 'Completed' },
+    { id: '5', name: 'Mallikarjun', trade: 'Electrician / Wireman', time: '02:15 PM', match: 'PM Surya Ghar (86%)', status: 'Completed' }
+  ]);
 
   // Settings Modal
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
@@ -147,10 +156,13 @@ export const App: React.FC = () => {
     }
   }, []);
 
-  const resetConversation = (lang: SupportedLanguage = currentLanguageRef.current) => {
+  const resetConversation = (lang: SupportedLanguage = currentLanguageRef.current, nameOverride?: string) => {
     voiceService.stopListening();
     voiceService.stopSpeaking();
-    agentPipeline.resetInterview();
+    if (nameOverride && nameOverride.trim()) {
+      agentPipeline.setCitizenName(nameOverride.trim());
+    }
+    agentPipeline.resetInterview(Boolean(nameOverride || agentPipeline.getCitizenName()));
     setMicState('IDLE');
     setTranscriptInterim('');
     setConversationState('LANDING');
@@ -159,7 +171,7 @@ export const App: React.FC = () => {
     setRightPanelTab('feed');
     updateAgentNodeStatus('voice_agent');
 
-    const greeting = agentPipeline.getInitialGreeting(lang);
+    const greeting = agentPipeline.getInitialGreeting(lang, nameOverride);
     setHistory([greeting]);
 
     if (audioEnabled) {
@@ -280,6 +292,21 @@ export const App: React.FC = () => {
 
     if (res.updatedProfile) {
       setProfile(res.updatedProfile);
+      if (res.nextState === 'RESULTS_VIEW') {
+        const citizenName = res.updatedProfile.citizenName || agentPipeline.getCitizenName() || 'Citizen Applicant';
+        const bestScheme = res.updatedProfile.matchedPrograms?.[0];
+        const matchStr = bestScheme ? `${bestScheme.title.slice(0, 18)}... (${bestScheme.matchPercentage}%)` : 'PMKVY 4.0 (95%)';
+        const newRecord: FieldQueueRecord = {
+          id: res.updatedProfile.id || String(Date.now()),
+          name: citizenName,
+          trade: res.updatedProfile.occupation,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          match: matchStr,
+          status: 'Completed',
+          profile: res.updatedProfile
+        };
+        setFieldQueue(prev => [newRecord, ...prev.filter(r => r.id !== newRecord.id)]);
+      }
     }
 
     if (res.isReadbackPrompt) {
@@ -332,12 +359,17 @@ export const App: React.FC = () => {
     handleProcessUserInput(command);
   };
 
-  const handleStartFieldSession = (_name: string, trade: string) => {
+  const handleStartFieldSession = (name: string, trade: string) => {
     setActiveMode('voice');
-    resetConversation(currentLanguageRef.current);
-    setTimeout(() => {
-      handleProcessUserInput(trade || 'Software Engineer');
-    }, 400);
+    if (name && name.trim()) {
+      agentPipeline.setCitizenName(name.trim());
+    }
+    resetConversation(currentLanguageRef.current, name.trim());
+    if (trade && trade.trim()) {
+      setTimeout(() => {
+        handleProcessUserInput(trade.trim());
+      }, 500);
+    }
   };
 
   const handleSaveConfig = (config: { provider: AIProvider; geminiKey: string; grokKey: string }) => {
@@ -378,6 +410,7 @@ export const App: React.FC = () => {
           <FieldAssistantMode
             currentLanguage={currentLanguage}
             onLaunchCitizenSession={handleStartFieldSession}
+            queueRecords={fieldQueue}
           />
         )}
 

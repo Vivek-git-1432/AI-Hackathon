@@ -14,11 +14,13 @@ import {
   Terminal, 
   Database, 
   Layers, 
-  CheckCircle2
+  CheckCircle2,
+  Printer
 } from 'lucide-react';
 import type { LivelihoodProfile, SupportedLanguage } from '../types';
 import { I18N_DATA } from '../data/i18n';
 import { parseToolTokens } from '../services/agentPipeline';
+import { PrintableKaushalPassportModal } from './PrintableKaushalPassportModal';
 
 interface SkillProfileCardProps {
   profile: LivelihoodProfile;
@@ -30,6 +32,7 @@ export const SkillProfileCard: React.FC<SkillProfileCardProps> = ({
   currentLanguage
 }) => {
   const [showEvidence, setShowEvidence] = useState(false);
+  const [isPrintOpen, setIsPrintOpen] = useState(false);
   const t = I18N_DATA[currentLanguage] || I18N_DATA.kn;
 
   const occLower = (profile.occupation || '').toLowerCase();
@@ -90,18 +93,30 @@ export const SkillProfileCard: React.FC<SkillProfileCardProps> = ({
           </div>
         </div>
 
-        {/* Confidence Badge */}
-        <div className="flex items-center gap-2.5 self-start sm:self-auto bg-slate-800/80 border border-amber-500/30 px-3.5 py-1.5 rounded-xl shadow-sm">
-          <div className="text-right">
-            <span className="text-[9px] uppercase font-mono font-bold tracking-wider text-slate-400 block">
-              {t.confidenceLabel}
-            </span>
-            <span className="text-sm font-bold text-amber-400 font-mono">
-              {profile.mappingConfidence}% Confidence
-            </span>
-          </div>
-          <div className="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
-            <Sparkles className="w-4 h-4" />
+        {/* Print & Confidence Badge Container */}
+        <div className="flex items-center gap-3 self-start sm:self-auto">
+          <button
+            onClick={() => setIsPrintOpen(true)}
+            className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-md shadow-amber-500/20 transition-all cursor-pointer"
+            title="Print Official Kaushal Digital Skill Passport & Certificate"
+          >
+            <Printer className="w-4 h-4" />
+            <span className="hidden sm:inline">Print Kaushal Card</span>
+            <span className="sm:hidden">Print</span>
+          </button>
+
+          <div className="flex items-center gap-2.5 bg-slate-800/80 border border-amber-500/30 px-3.5 py-1.5 rounded-xl shadow-sm">
+            <div className="text-right">
+              <span className="text-[9px] uppercase font-mono font-bold tracking-wider text-slate-400 block">
+                {t.confidenceLabel}
+              </span>
+              <span className="text-sm font-bold text-amber-400 font-mono">
+                {profile.mappingConfidence}% Confidence
+              </span>
+            </div>
+            <div className="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
+              <Sparkles className="w-4 h-4" />
+            </div>
           </div>
         </div>
       </div>
@@ -249,6 +264,13 @@ export const SkillProfileCard: React.FC<SkillProfileCardProps> = ({
           </div>
         </div>
       )}
+
+      {/* Printable Official Kaushal Skill Passport Certificate Modal */}
+      <PrintableKaushalPassportModal
+        isOpen={isPrintOpen}
+        onClose={() => setIsPrintOpen(false)}
+        profile={profile}
+      />
     </div>
   );
 };

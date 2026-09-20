@@ -25,6 +25,7 @@ export const INITIAL_AGENT_NODES: AgentNode[] = [
 ];
 
 export interface CitizenSlots {
+  citizenName: string | null;
   occupation: string | null;
   experienceYears: number | null;
   toolsEquipment: string | null;
@@ -142,11 +143,20 @@ export class AgentPipelineService {
   private openAiKey: string = '';
 
   private slots: CitizenSlots = {
+    citizenName: null,
     occupation: null,
     experienceYears: null,
     toolsEquipment: null,
     aspiration: null
   };
+
+  public setCitizenName(name: string) {
+    this.slots.citizenName = name.trim();
+  }
+
+  public getCitizenName(): string | null {
+    return this.slots.citizenName;
+  }
 
   constructor() {
     if (typeof window !== 'undefined') {
@@ -200,8 +210,10 @@ export class AgentPipelineService {
     };
   }
 
-  public resetInterview() {
+  public resetInterview(preserveName: boolean = false) {
+    const prevName = preserveName ? this.slots.citizenName : null;
     this.slots = {
+      citizenName: prevName,
       occupation: null,
       experienceYears: null,
       toolsEquipment: null,
@@ -209,34 +221,63 @@ export class AgentPipelineService {
     };
   }
 
-  public getInitialGreeting(lang: SupportedLanguage): DialogueTurn {
+  public getInitialGreeting(lang: SupportedLanguage, nameOverride?: string | null): DialogueTurn {
+    const cName = nameOverride || this.slots.citizenName;
     let text = '';
     let translation = '';
 
-    switch (lang) {
-      case 'kn':
-        text = 'ನಮಸ್ಕಾರ! ಸಕ್ಷಮ್ ವಾಯ್ಸ್‌ಗೆ ಸುಸ್ವಾಗತ. ನಿಮ್ಮ ಕೆಲಸ, ಕೌಶಲ್ಯ ಮತ್ತು ಅನುಭವವನ್ನು ಅರ್ಥಮಾಡಿಕೊಂಡು ಸರ್ಕಾರಿ ಕೌಶಲ್ಯ ಯೋಜನೆಗಳನ್ನು ಪಡೆಯಲು ನಾನು ನಿಮಗೆ ಸಹಾಯ ಮಾಡುತ್ತೇನೆ. ನೀವು ಪ್ರಸ್ತುತ ಯಾವ ಕೆಲಸ ಮಾಡುತ್ತಿದ್ದೀರಿ?';
-        translation = 'Welcome! I am Saksham Voice. I will help you discover government skilling programs based on your skills. What work do you currently do?';
-        break;
-      case 'hi':
-        text = 'नमस्ते! सक्षम वॉइस में आपका स्वागत है। आपके काम और कौशल के आधार पर सरकारी कौशल योजनाओं को खोजने में मैं आपकी मदद करूँगा। आप वर्तमान में क्या काम करते हैं?';
-        translation = 'Welcome! I am Saksham Voice. I will help you discover government skilling schemes. What work do you currently do?';
-        break;
-      case 'te':
-        text = 'నమస్కారం! సక్షమ్ వాయిస్‌కు స్వాగతం. మీ నైపుణ్యాలు మరియు పని ఆధారంగా ఉత్తమ ప్రభుత్వ నైపుణ్య పథకాలను కనుగొనడంలో నేను మీకు సహాయం చేస్తాను. మీరు ప్రస్తుతం ఏ పని చేస్తున్నారు?';
-        translation = 'Welcome! I am Saksham Voice. What work do you currently do?';
-        break;
-      case 'ta':
-        text = 'வணக்கம்! சக்ஷம் வாய்ஸுக்கு வரவேற்கிறோம். உங்கள் வேலை மற்றும் திறன்களின் அடிப்படையில் சிறந்த அரசு திறன் திட்டங்களை கண்டறிய நான் உதவுகிறேன். தற்போது நீங்கள் என்ன வேலை செய்கிறீர்கள்?';
-        translation = 'Welcome! I am Saksham Voice. What work do you currently do?';
-        break;
-      case 'mr':
-        text = 'नमस्कार! सक्षम व्हॉईसमध्ये आपले स्वागत आहे. आपल्या कौशल्य आणि अनुभवाच्या आधारे सर्वोत्तम सरकारी कौशल्य योजना शोधण्यात मी मदत करेन. आपण सध्या कोणते काम करता?';
-        translation = 'Welcome! I am Saksham Voice. What work do you currently do?';
-        break;
-      default:
-        text = 'Hello and Welcome! I am Saksham Voice. Tell me about the work you currently do so I can discover the best government skilling programs for you.';
-        translation = 'Hello and Welcome! I am Saksham Voice. Tell me about the work you currently do so I can discover the best government skilling programs for you.';
+    if (cName) {
+      switch (lang) {
+        case 'kn':
+          text = `ನಮಸ್ಕಾರ ${cName}! ಸಕ್ಷಮ್ ವಾಯ್ಸ್‌ಗೆ ಸುಸ್ವಾಗತ. ನಿಮ್ಮ ಕೌಶಲ್ಯ, ಕೆಲಸ ಅಥವಾ ಅಧ್ಯಯನವನ್ನು ತಿಳಿದುಕೊಂಡು ಅತ್ಯುತ್ತಮ ಸರ್ಕಾರಿ ಯೋಜನೆಗಳನ್ನು ಒದಗಿಸಲು ನಾನು ಇಲ್ಲಿದ್ದೇನೆ. ನೀವು ಪ್ರಸ್ತುತ ಯಾವ ಕೆಲಸ ಅಥವಾ ಅಧ್ಯಯನ ಮಾಡುತ್ತಿದ್ದೀರಿ?`;
+          translation = `Welcome ${cName}! I am Saksham Voice. Tell me about the work, trade, or studies you currently do so I can discover government skilling schemes for you.`;
+          break;
+        case 'hi':
+          text = `नमस्ते ${cName}! सक्षम वॉइस में आपका स्वागत है। आपके काम और पढ़ाई के आधार पर सरकारी कौशल योजनाएं खोजने में मैं आपकी मदद करूँगा। आप अभी क्या काम या पढ़ाई करते हैं?`;
+          translation = `Welcome ${cName}! What work or studies are you currently doing?`;
+          break;
+        case 'te':
+          text = `నమస్కారం ${cName}! సక్షమ్ వాయిస్‌కు స్వాగతం. మీ నైపుణ్యాలు మరియు పని/చదువు ఆధారంగా ఉత్తమ ప్రభుత్వ పథకాలను కనుగొనడంలో నేను మీకు సహాయం చేస్తాను. మీరు ప్రస్తుతం ఏ పని చేస్తున్నారు?`;
+          translation = `Welcome ${cName}! What work or studies do you currently do?`;
+          break;
+        case 'ta':
+          text = `வணக்கம் ${cName}! சக்ஷம் வாய்ஸுக்கு வரவேற்கிறோம். உங்கள் வேலை மற்றும் திறன்களின் அடிப்படையில் சிறந்த அரசு திட்டங்களை கண்டறிய நான் உதவுகிறேன். தற்போது நீங்கள் என்ன செய்கிறீர்கள்?`;
+          translation = `Welcome ${cName}! What work or studies do you currently do?`;
+          break;
+        case 'mr':
+          text = `नमस्कार ${cName}! सक्षम व्हॉईसमध्ये आपले स्वागत आहे. आपल्या कौशल्य आणि अभ्यासाच्या आधारे सर्वोत्तम सरकारी योजना शोधण्यात मी मदत करेन. आपण सध्या कोणते काम करता?`;
+          translation = `Welcome ${cName}! What work or studies do you currently do?`;
+          break;
+        default:
+          text = `Hello ${cName} and Welcome to Saksham Voice! Tell me about the work, trade, or studies you currently do so I can discover the best government skilling programs for you.`;
+          translation = `Hello ${cName} and Welcome to Saksham Voice! Tell me about the work, trade, or studies you currently do so I can discover the best government skilling programs for you.`;
+      }
+    } else {
+      switch (lang) {
+        case 'kn':
+          text = 'ನಮಸ್ಕಾರ! ಸಕ್ಷಮ್ ವಾಯ್ಸ್‌ಗೆ ಸುಸ್ವಾಗತ. ನಿಮ್ಮ ಕೆಲಸ, ಕೌಶಲ್ಯ ಮತ್ತು ಅನುಭವವನ್ನು ಅರ್ಥಮಾಡಿಕೊಂಡು ಸರ್ಕಾರಿ ಕೌಶಲ್ಯ ಯೋಜನೆಗಳನ್ನು ಪಡೆಯಲು ನಾನು ನಿಮಗೆ ಸಹಾಯ ಮಾಡುತ್ತೇನೆ. ನೀವು ಪ್ರಸ್ತುತ ಯಾವ ಕೆಲಸ ಮಾಡುತ್ತಿದ್ದೀರಿ?';
+          translation = 'Welcome! I am Saksham Voice. I will help you discover government skilling programs based on your skills. What work do you currently do?';
+          break;
+        case 'hi':
+          text = 'नमस्ते! सक्षम वॉइस में आपका स्वागत है। आपके काम और कौशल के आधार पर सरकारी कौशल योजनाओं को खोजने में मैं आपकी मदद करूँगा। आप वर्तमान में क्या काम करते हैं?';
+          translation = 'Welcome! I am Saksham Voice. I will help you discover government skilling schemes. What work do you currently do?';
+          break;
+        case 'te':
+          text = 'నమస్కారం! సಕ್ಷమ్ వాయిస్‌కు స్వాగతం. మీ నైపుణ్యాలు మరియు పని ఆధారంగా ఉత్తమ ప్రభుత్వ నైపుణ್ಯ పథకాలను కనుగొనడంలో నేను మీకు సహాయం చేస్తాను. మీరు ప్రస్తుతం ఏ పని చేస్తున్నారు?';
+          translation = 'Welcome! I am Saksham Voice. What work do you currently do?';
+          break;
+        case 'ta':
+          text = 'வணக்கம்! சக்ஷம் வாய்ஸுக்கு வரவேற்கிறோம். உங்கள் வேலை மற்றும் திறன்களின் அடிப்படையில் சிறந்த அரசு திறன் திட்டங்களை கண்டறிய நான் உதவுகிறேன். தற்போது நீங்கள் என்ன வேலை செய்கிறீர்கள்?';
+          translation = 'Welcome! I am Saksham Voice. What work do you currently do?';
+          break;
+        case 'mr':
+          text = 'नमस्कार! सक्षम व्हॉईसमध्ये आपले स्वागत आहे. आपल्या कौशल्य आणि अनुभवाच्या आधारे सर्वोत्तम सरकारी कौशल्य योजना शोधण्यात मी मदत करेन. आपण सध्या कोणते काम करता?';
+          translation = 'Welcome! I am Saksham Voice. What work do you currently do?';
+          break;
+        default:
+          text = 'Hello and Welcome! I am Saksham Voice. Tell me about the work or studies you currently do so I can discover the best government skilling programs for you.';
+          translation = 'Hello and Welcome! I am Saksham Voice. Tell me about the work or studies you currently do so I can discover the best government skilling programs for you.';
+      }
     }
 
     return {
@@ -249,9 +290,9 @@ export class AgentPipelineService {
       agentNode: 'voice_agent',
       reasoningStep: {
         step: 'Agent Initial Handshake',
-        observation: `Citizen session initiated in locale: "${lang}"`,
-        deduplicationCheck: 'All 4 skill slots empty',
-        decision: 'Greet warmly and inquire about primary occupation',
+        observation: cName ? `Citizen session initiated for "${cName}" in locale: "${lang}"` : `Citizen session initiated in locale: "${lang}"`,
+        deduplicationCheck: 'All 4 skill slots initialized',
+        decision: cName ? `Greet ${cName} warmly by name and inquire about trade/studies` : 'Greet warmly and inquire about primary occupation',
         confidence: 99
       }
     };
@@ -266,6 +307,12 @@ export class AgentPipelineService {
   ): Promise<AgentPipelineResponse> {
     const textTrimmed = userInput.trim();
     const textLower = textTrimmed.toLowerCase();
+
+    // Check if user stated their name in natural speech
+    const detectedName = this.detectName(textTrimmed);
+    if (detectedName && !this.slots.citizenName) {
+      this.slots.citizenName = detectedName;
+    }
 
     // 0. Session Reset / "Start from the beginning" Command
     if (this.isResetCommand(textLower)) {
@@ -1043,6 +1090,22 @@ Rules:
     return identityPhrases.some(p => text.includes(p));
   }
 
+  public detectName(text: string): string | null {
+    const t = text.trim();
+    // Patterns like: "My name is Vivek", "I am Vivek", "I'm Vivek", "This is Vivek", "Hi Vivek", "Hello Vivek", "ನನ್ನ ಹೆಸರು ವಿವೇಕ್", "ಹೆಸರು ವಿವೇಕ್", "ನಾನು ವಿವೇಕ್", "मेरा नाम विवेक है", "नाम विवेक है"
+    const nameRegex = /(?:my name is|i am|i'm|this is|call me|name is|ಹೆಸರು|ನನ್ನ ಹೆಸರು|ನಾನು|नाम है|मेरा नाम|नाम|hi|hello)\s+([A-Za-z\u0C80-\u0CFF\u0900-\u097F]+)/i;
+    const match = t.match(nameRegex);
+    if (match && match[1]) {
+      const candidate = match[1].trim();
+      const lower = candidate.toLowerCase();
+      const blacklist = ['a', 'an', 'the', 'student', 'farmer', 'engineer', 'tailor', 'worker', 'doing', 'working', 'here', 'ready', 'yes', 'no', 'saksham', 'voice', 'sir', 'madam', 'assist', 'assistant', 'there', 'who', 'what', 'where', 'how', 'when', 'good', 'morning', 'afternoon', 'evening', 'night', 'ನಮಸ್ಕಾರ', 'ಶುಭೋದಯ', 'नमस्ते'];
+      if (!blacklist.includes(lower) && candidate.length >= 2) {
+        return candidate.charAt(0).toUpperCase() + candidate.slice(1);
+      }
+    }
+    return null;
+  }
+
   private detectOccupation(text: string): string | null {
     const t = text.toLowerCase();
 
@@ -1071,37 +1134,55 @@ Rules:
       return 'Software Engineering & AI Agent Development';
     }
 
-    // 4. Healthcare & Nursing
+    // 4. Student, Academic, College & Degree Studies
+    if (
+      t.includes('student') || t.includes('college') || t.includes('school') || t.includes('studies') ||
+      t.includes('undergrad') || t.includes('graduate') || t.includes('degree') || t.includes('diploma') ||
+      t.includes('ವಿದ್ಯಾರ್ಥಿ') || t.includes('ಸ್ಟೂಡೆಂಟ್') || t.includes('छात्र') || t.includes('विद्यार्थी')
+    ) {
+      if (t.includes('engineer') || t.includes('software') || t.includes('tech') || t.includes('comput') || t.includes('cs') || t.includes('it')) {
+        return 'Engineering Student & Technology Skilling Candidate';
+      }
+      if (t.includes('civil') || t.includes('ias') || t.includes('upsc') || t.includes('admin')) {
+        return 'Civil Services (IAS / IPS) Aspirant & College Student';
+      }
+      if (t.includes('event') || t.includes('cater')) {
+        return 'Engineering Student & Event Management / Catering Assistant';
+      }
+      return 'Student / Higher Education & Professional Career Candidate';
+    }
+
+    // 5. Healthcare & Nursing
     if (t.includes('nurse') || t.includes('health') || t.includes('asha') || t.includes('clinic') || t.includes('medical') || t.includes('hospital') || t.includes('ಆಶಾ') || t.includes('ನರ್ಸ್')) {
       return 'Healthcare & Community Nursing Assistance';
     }
 
-    // 5. Electrical & Solar
+    // 6. Electrical & Solar
     if (t.includes('electr') || t.includes('wireman') || t.includes('solar') || t.includes('panel') || t.includes('ವಿದ್ಯುತ್') || t.includes('ವೈರ್ಮನ್') || t.includes('बिजली') || t.includes('वायरमैन')) {
       return 'Electrical & Solar Power Systems';
     }
 
-    // 6. Tailoring & Apparel
+    // 7. Tailoring & Apparel
     if (t.includes('tailor') || t.includes('stitch') || t.includes('dress') || t.includes('cloth') || t.includes('sewing') || t.includes('garment') || t.includes('ಟೈಲರ್') || t.includes('ಬಟ್ಟೆ') || t.includes('दर्जी') || t.includes('सिलाई')) {
       return 'Tailoring & Garment Manufacturing';
     }
 
-    // 7. Carpentry & Masonry
+    // 8. Carpentry & Masonry
     if (t.includes('carpent') || t.includes('wood') || t.includes('mason') || t.includes('plumb') || t.includes('construct') || t.includes('ಮೇಸ್ತ್ರಿ') || t.includes('ಬಡಗಿ') || t.includes('ಪ್ಲಂಬರ್')) {
       return 'Construction, Carpentry & Plumbing';
     }
 
-    // 8. Driving & Automotive
+    // 9. Driving & Automotive
     if (t.includes('driver') || t.includes('cab') || t.includes('auto') || t.includes('mechanic') || t.includes('vehicle') || t.includes('ಡ್ರೈವರ್') || t.includes('ಮೆಕ್ಯಾನಿಕ್')) {
       return 'Automotive Repair & Commercial Driving';
     }
 
-    // 9. Retail & Small Business
+    // 10. Retail & Small Business
     if (t.includes('shop') || t.includes('store') || t.includes('retail') || t.includes('sales') || t.includes('kirana') || t.includes('ಅಂಗಡಿ') || t.includes('ದೊಕಾನ್')) {
       return 'Retail Store & Small Business Management';
     }
 
-    // 10. Agriculture (Only when agricultural terms are explicitly present)
+    // 11. Agriculture (Only when agricultural terms are explicitly present)
     if (t.includes('farm') || t.includes('agri') || t.includes('crop') || t.includes('farmer') || t.includes('dairy') || t.includes('tractor') || t.includes('soil') || t.includes('ಕೃಷಿ') || t.includes('ರೈತ') || t.includes('किसान') || t.includes('खेती')) {
       return 'Agriculture & Sustainable Crop Farming';
     }
@@ -1119,6 +1200,9 @@ Rules:
     }
     if (t.includes('comput') || t.includes('laptop') || t.includes('python') || t.includes('code') || t.includes('system') || t.includes('engineer') || t.includes('ಕಂಪ್ಯೂಟರ್')) {
       return 'Computer Systems, Code Editors & Cloud Development Tools';
+    }
+    if (t.includes('student') || t.includes('college') || t.includes('study') || t.includes('academic') || t.includes('book') || t.includes('course') || t.includes('ವಿದ್ಯಾರ್ಥಿ') || t.includes('छात्र')) {
+      return 'Academic Course Materials, Digital Learning Platforms & Computer Systems';
     }
     if (t.includes('nurse') || t.includes('health') || t.includes('medical') || t.includes('clinic')) {
       return 'Diagnostic Monitoring Kits, BP Gauges, Patient Charts & Health Informatics';
@@ -1148,6 +1232,9 @@ Rules:
     }
     if (t.includes('ai') || t.includes('artificial') || t.includes('intelligence') || t.includes('machine learning') || t.includes('deep learning') || t.includes('cloud')) {
       return 'Applied Artificial Intelligence, Cloud Systems & Agent Architecture';
+    }
+    if (t.includes('student') || t.includes('placement') || t.includes('job') || t.includes('exam') || t.includes('campus') || t.includes('career') || t.includes('degree') || t.includes('graduat')) {
+      return 'Graduate Campus Placement, Competitive Examinations & Industry Skill Certification';
     }
     if (t.includes('health') || t.includes('nurse') || t.includes('hospital') || t.includes('medical')) {
       return 'Advanced Clinical Nursing, Emergency Triage & Hospital Coordination';
@@ -1312,6 +1399,7 @@ Respond with strict JSON matching this schema:
               const parsed = JSON.parse(text);
               if (parsed.occupation && parsed.currentSkills && parsed.matchedPrograms && parsed.matchedPrograms.length > 0) {
                 parsed.id = parsed.id || `profile-${Date.now()}`;
+                parsed.citizenName = parsed.citizenName || this.slots.citizenName || (lang === 'kn' ? 'ಅರ್ಜಿದಾರ (Citizen)' : lang === 'hi' ? 'नागरिक (Citizen)' : 'Applicant (Citizen)');
                 parsed.isConfirmed = true;
                 parsed.confirmedAt = new Date().toISOString();
                 parsed.matchedPrograms = parsed.matchedPrograms.map((p: any) => ({
@@ -1364,6 +1452,7 @@ Include: id, citizenName, occupation, experienceYears, education, location, curr
           const parsed = JSON.parse(content);
           if (parsed.occupation && parsed.currentSkills && parsed.matchedPrograms && parsed.matchedPrograms.length > 0) {
             parsed.id = parsed.id || `profile-${Date.now()}`;
+            parsed.citizenName = parsed.citizenName || this.slots.citizenName || (lang === 'kn' ? 'ಅರ್ಜಿದಾರ (Citizen)' : lang === 'hi' ? 'नागरिक (Citizen)' : 'Applicant (Citizen)');
             parsed.isConfirmed = true;
             parsed.confirmedAt = new Date().toISOString();
             parsed.matchedPrograms = parsed.matchedPrograms.map((p: any) => ({
@@ -1398,6 +1487,7 @@ Include: id, citizenName, occupation, experienceYears, education, location, curr
     const aspLower = asp.toLowerCase();
     const combined = `${occLower} ${aspLower}`;
 
+    const isStudent = combined.includes('student') || combined.includes('academic') || combined.includes('college') || combined.includes('study') || combined.includes('studies') || combined.includes('degree') || combined.includes('diploma') || combined.includes('ವಿದ್ಯಾರ್ಥಿ') || combined.includes('छात्र');
     const isCivilServices = combined.includes('civil') || combined.includes('ias') || combined.includes('ips') || combined.includes('police') || combined.includes('upsc') || combined.includes('kpsc') || combined.includes('public admin') || combined.includes('governance');
     const isEventHospitality = combined.includes('event') || combined.includes('cater') || combined.includes('hotel') || combined.includes('hospitality') || combined.includes('tourism');
     const isTech = combined.includes('comput') || combined.includes('software') || combined.includes('engineer') || combined.includes('developer') || combined.includes('ai') || combined.includes('agent') || combined.includes('python') || combined.includes('code');
@@ -1409,33 +1499,33 @@ Include: id, citizenName, occupation, experienceYears, education, location, curr
 
     let education = 'Undergraduate Degree / Technical Diploma Foundation';
     let currentSkills = [
-      { name: 'Event Coordination & Logistics', icon: '🎪' },
-      { name: 'Public Communication & Team Leadership', icon: '🗣️' },
-      { name: 'Engineering & Analytical Foundations', icon: '📐' },
-      { name: 'Administrative Planning & Scheduling', icon: '📋' }
+      { name: 'Digital Research & Analysis', icon: '📚' },
+      { name: 'Core Domain Academics', icon: '🎓' },
+      { name: 'Computer & Practical Literacy', icon: '💻' },
+      { name: 'Team Collaboration & Presentation', icon: '🗣️' }
     ];
 
     let structuredCategories = [
-      'Public Administration & Governance Aspirations',
-      'Event Operations & Hospitality Management',
-      'Engineering & Applied Problem Solving',
-      'Civil Services Competitive Preparation'
+      'Higher Education & Professional Skilling',
+      'Digital Competencies & Emerging Tech',
+      'Academic Foundations & Applied Projects',
+      'National Apprenticeship & Placement Pathways'
     ];
 
     let skillGap: SkillGapItem = {
       id: `gap-${Date.now()}`,
       currentSkills: [
-        '✓ Event Operations & Ground Logistics Planning',
-        '✓ Public Communication & Crisis Handling',
-        '✓ Engineering Aptitude & Analytical Problem Solving',
-        '✓ High-Pressure Work Coordination'
+        '✓ Strong Academic Foundations & Conceptual Theory',
+        '✓ Fast Learner & Digital Tools Research Aptitude',
+        '✓ Collaborative Project Execution & Teamwork',
+        '✓ Analytical Problem Solving & Fast Comprehension'
       ],
-      targetCapability: 'Civil Services Officer (IAS/IPS/KPSC) & Public Sector Administration Leadership',
+      targetCapability: 'Industry-Ready Graduate with Certified Practical NSQF Competencies & High-Growth Placement',
       gapSkills: [
-        '⚠️ UPSC / State PSC Syllabus Mastery & General Studies Core',
-        '⚠️ Indian Constitution, Governance Frameworks & Administrative Law',
-        '⚠️ Public Policy Formulation & Ethics Case Analysis',
-        '⚠️ Analytical Essay Writing & Personality Interview Protocols'
+        '⚠️ Hands-on Industry-Standard Frameworks & Automated Tooling',
+        '⚠️ Recognized NSQF Professional Skill Certification',
+        '⚠️ Corporate & Competitive Examination Problem-Solving Mastery',
+        '⚠️ Technical Interview Protocols & Soft Skills Polish'
       ]
     };
 
@@ -1533,6 +1623,38 @@ Include: id, citizenName, occupation, experienceYears, education, location, curr
           '⚠️ PyTorch / TensorFlow Neural Network Architectures',
           '⚠️ Cloud GPU Deployment & Scalable Inference Clusters',
           '⚠️ Vector Databases, Embeddings & RAG Architectures'
+        ]
+      };
+    } else if (isStudent) {
+      education = 'Undergraduate Degree / Academic Studies (In Progress)';
+      currentSkills = [
+        { name: 'Digital Research & Analytical Problem Solving', icon: '📚' },
+        { name: 'Foundational Domain Academics & Projects', icon: '🎓' },
+        { name: 'Computer & Information Literacy', icon: '💻' },
+        { name: 'Team Collaboration & Presentation Skills', icon: '🗣️' }
+      ];
+
+      structuredCategories = [
+        'Higher Education & Professional Skilling',
+        'Digital Competencies & Emerging Tech',
+        'Academic Foundations & Applied Projects',
+        'National Apprenticeship & Placement Pathways'
+      ];
+
+      skillGap = {
+        id: `gap-${Date.now()}`,
+        currentSkills: [
+          '✓ Strong Academic Foundations & Conceptual Theory',
+          '✓ Fast Learner & Digital Tools Research Aptitude',
+          '✓ Collaborative Project Execution & Teamwork',
+          '✓ Problem Analysis & Technical Presentation'
+        ],
+        targetCapability: 'Industry-Ready Graduate with Certified Practical NSQF Competencies & High-Growth Placement',
+        gapSkills: [
+          '⚠️ Hands-on Industry-Standard Frameworks & Automated Tooling',
+          '⚠️ Professional NSQF Certification & Practical Project Portfolio',
+          '⚠️ Corporate & Competitive Examination Problem-Solving Mastery',
+          '⚠️ Technical Interview Protocols & Soft Skills Polish'
         ]
       };
     } else if (isHealth) {
@@ -1724,7 +1846,7 @@ Include: id, citizenName, occupation, experienceYears, education, location, curr
       }
     ];
 
-    const citizenName = isKn ? 'ಅರ್ಜಿದಾರ (Citizen)' : isHi ? 'नागरिक (Citizen)' : 'Applicant (Citizen)';
+    const citizenName = this.slots.citizenName || (isKn ? 'ಅರ್ಜಿದಾರ (Citizen)' : isHi ? 'नागरिक (Citizen)' : 'Applicant (Citizen)');
 
     return {
       id: `profile-${Date.now()}`,
