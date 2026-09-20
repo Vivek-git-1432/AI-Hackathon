@@ -29,22 +29,24 @@ export class VoiceService {
   private onResultCallback: ((text: string, isFinal: boolean) => void) | null = null;
   private onEndCallback: (() => void) | null = null;
 
-  // Voice Persona Settings
-  private preferredGender: VoiceGenderPreference = 'female';
+  // Voice Persona Settings (Default Male, 1.0x Speed)
+  private preferredGender: VoiceGenderPreference = 'male';
   private preferredVoiceURI: string = '';
-  private preferredPitch: number = 1.05;
-  private preferredRate: number = 0.95;
+  private preferredPitch: number = 0.95;
+  private preferredRate: number = 1.0;
 
   constructor() {
     if (typeof window !== 'undefined') {
       const savedGender = localStorage.getItem('saksham_voice_gender') as VoiceGenderPreference;
       if (savedGender && ['female', 'male', 'system'].includes(savedGender)) {
         this.preferredGender = savedGender;
+      } else {
+        this.preferredGender = 'male';
       }
       this.preferredVoiceURI = localStorage.getItem('saksham_voice_uri') || '';
-      const savedPitch = parseFloat(localStorage.getItem('saksham_voice_pitch') || '1.05');
+      const savedPitch = parseFloat(localStorage.getItem('saksham_voice_pitch') || '0.95');
       if (!isNaN(savedPitch)) this.preferredPitch = savedPitch;
-      const savedRate = parseFloat(localStorage.getItem('saksham_voice_rate') || '0.95');
+      const savedRate = parseFloat(localStorage.getItem('saksham_voice_rate') || '1.0');
       if (!isNaN(savedRate)) this.preferredRate = savedRate;
     }
   }
@@ -268,7 +270,7 @@ export class VoiceService {
       const foundFemale = candidates.find(v => femaleKeywords.some(kw => v.name.toLowerCase().includes(kw)));
       if (foundFemale) return foundFemale;
     } else if (this.preferredGender === 'male') {
-      const maleKeywords = ['male', 'boy', 'man', 'david', 'ravi', 'george', 'madhav', 'prabhat', 'mohan', 'karthik', 'hemanth'];
+      const maleKeywords = ['male', 'boy', 'man', 'david', 'ravi', 'george', 'madhav', 'prabhat', 'mohan', 'karthik', 'hemanth', 'guy', 'mark', 'james', 'natural'];
       const foundMale = candidates.find(v => maleKeywords.some(kw => v.name.toLowerCase().includes(kw)));
       if (foundMale) return foundMale;
     }
@@ -297,13 +299,13 @@ export class VoiceService {
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = speechCode;
 
-      // Apply User's Fixed Speed and Pitch
-      utterance.rate = this.preferredRate || 0.95;
+      // Apply User's Fixed Speed and Pitch (1.0x Default Male Tone)
+      utterance.rate = this.preferredRate || 1.0;
       
       if (this.preferredGender === 'female') {
         utterance.pitch = Math.max(1.1, this.preferredPitch || 1.12);
       } else if (this.preferredGender === 'male') {
-        utterance.pitch = Math.min(0.9, this.preferredPitch || 0.88);
+        utterance.pitch = Math.min(0.95, this.preferredPitch || 0.9);
       } else {
         utterance.pitch = this.preferredPitch || 1.0;
       }

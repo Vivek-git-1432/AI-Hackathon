@@ -557,7 +557,24 @@ export const App: React.FC = () => {
                 currentLanguage={currentLanguage}
                 onStartVoice={() => {
                   setConversationState('INTERVIEW_NAME_LOCATION');
-                  handleToggleMic();
+                  const greetingText = history[0]?.text || agentPipeline.getInitialGreeting(currentLanguageRef.current).text;
+                  if (audioEnabled) {
+                    voiceService.speak(
+                      greetingText,
+                      currentLanguageRef.current,
+                      () => setMicState('RESPONDING'),
+                      () => {
+                        setMicState('IDLE');
+                        if (autoListenRef.current) {
+                          setTimeout(() => {
+                            startListeningInternal();
+                          }, 500);
+                        }
+                      }
+                    );
+                  } else {
+                    handleToggleMic();
+                  }
                 }}
               />
             )}
