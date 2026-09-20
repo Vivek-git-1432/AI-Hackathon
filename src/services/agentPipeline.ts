@@ -519,54 +519,39 @@ export class AgentPipelineService {
     }
 
     // 2. Groq Cloud / xAI Grok LLM Reasoning if selected and key available
-    if (this.activeProvider === 'grok' && this.grokKey) {
+    if (this.grokKey && this.activeProvider !== 'local') {
       try {
         const isGroqCloud = this.grokKey.startsWith('gsk_');
         const endpoint = isGroqCloud ? 'https://api.groq.com/openai/v1/chat/completions' : 'https://api.x.ai/v1/chat/completions';
-        const model = isGroqCloud ? 'qwen/qwen3.8-27b' : 'grok-2-latest';
+        const models = isGroqCloud ? ['openai/gpt-oss-120b', 'qwen/qwen3.8-27b', 'groq/compound-mini'] : ['grok-2-latest'];
 
-        const grokRes = await this.callOpenAICompatibleAgent(
-          endpoint,
-          this.grokKey,
-          model,
-          textTrimmed,
-          lang,
-          history
-        );
-        if (grokRes) return grokRes;
+        for (const model of models) {
+          try {
+            const grokRes = await this.callOpenAICompatibleAgent(
+              endpoint,
+              this.grokKey,
+              model,
+              textTrimmed,
+              lang,
+              history
+            );
+            if (grokRes) return grokRes;
+          } catch (mErr) {
+            console.warn(`Model ${model} failed, trying next:`, mErr);
+          }
+        }
       } catch (err) {
-        console.warn('Grok/Groq call failed, attempting Gemini fallback:', err);
+        console.warn('Groq/Grok call failed:', err);
       }
     }
 
-    // 3. Gemini LLM Reasoning (Default when key available)
+    // 3. Gemini LLM Reasoning
     if (this.geminiKey && this.activeProvider !== 'local') {
       try {
         const geminiRes = await this.callGeminiAgent(textTrimmed, lang, history);
         if (geminiRes) return geminiRes;
       } catch (err) {
-        console.warn('Gemini Live API call failed, falling back to Grok:', err);
-      }
-    }
-
-    // 4. Fallback to Grok / Groq if available
-    if (this.grokKey && this.activeProvider !== 'local') {
-      try {
-        const isGroqCloud = this.grokKey.startsWith('gsk_');
-        const endpoint = isGroqCloud ? 'https://api.groq.com/openai/v1/chat/completions' : 'https://api.x.ai/v1/chat/completions';
-        const model = isGroqCloud ? 'qwen/qwen3.8-27b' : 'grok-2-latest';
-
-        const grokRes = await this.callOpenAICompatibleAgent(
-          endpoint,
-          this.grokKey,
-          model,
-          textTrimmed,
-          lang,
-          history
-        );
-        if (grokRes) return grokRes;
-      } catch (err) {
-        console.warn('Grok fallback failed:', err);
+        console.warn('Gemini call failed:', err);
       }
     }
 
@@ -1584,46 +1569,53 @@ Respond with strict JSON matching this schema:
       try {
         const isGroqCloud = this.grokKey.startsWith('gsk_');
         const endpoint = isGroqCloud ? 'https://api.groq.com/openai/v1/chat/completions' : 'https://api.x.ai/v1/chat/completions';
-        const model = isGroqCloud ? 'qwen/qwen3.8-27b' : 'grok-2-latest';
+        const models = isGroqCloud ? ['openai/gpt-oss-120b', 'qwen/qwen3.8-27b', 'groq/compound-mini'] : ['grok-2-latest'];
 
-        const res = await fetch(endpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${this.grokKey}`
-          },
-          body: JSON.stringify({
-            model,
-            messages: [
-              {
-                role: 'system',
-                content: `You are the Chief NSQF Skill Architect of India. Generate a 100% customized JSON LivelihoodProfile for:
-Candidate Name: ${this.slots.citizenName || 'Citizen'}, Location: ${this.slots.location || 'Karnataka'}, Trade: ${occ}, Experience: ${exp} yrs, Tools: ${rawTools}, Aspiration: ${asp}.
-Include: id, citizenName, occupation, experienceYears, education, location, currentSkills (array with name & icon), structuredCategories, toolsEquipment, targetAspiration, mappingConfidence, evidences, skillGap (currentSkills, targetCapability, gapSkills), matchedPrograms (title, provider, category, eligibility, matchPercentage, rankBadge, whyMatched, aiExplanation, skillsGained, duration, mode, stipend, toolkitGrant, loanSupport, officialPortalUrl, matchFactors), roadmap (3 steps), isConfirmed: true, confirmedAt.`
+        for (const model of models) {
+          try {
+            const res = await fetch(endpoint, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${this.grokKey}`
               },
-              { role: 'user', content: 'Output the full JSON profile.' }
-            ],
-            response_format: { type: 'json_object' }
-          })
-        });
+              body: JSON.stringify({
+                model,
+                messages: [
+                  {
+                    role: 'system',
+                    content: `You are the Chief NSQF Skill Architect of India. Generate a 100% customized JSON LivelihoodProfile for:
+Candidate Name: ${this.slots.citizenName || 'Citizen'}, Location: ${this.slots.location || 'Karnataka'}, Trade: ${occ}, Experience: ${exp} yrs, Tools: ${rawTools}, Aspiration: ${asp}.
+Target language for display: "${lang}".
+Include: id, citizenName, occupation, experienceYears, education, location, currentSkills (array of 4 objects with name & icon emoji), structuredCategories (4 strings), toolsEquipment (4 strings), targetAspiration, mappingConfidence (95-99), evidences (2 quote objects), skillGap (currentSkills starting with "✓ ", targetCapability, gapSkills starting with "⚠️ "), matchedPrograms (array of 2-3 government schemes with title, provider, category, eligibility, matchPercentage, rankBadge, whyMatched, aiExplanation, skillsGained, duration, mode, stipend, toolkitGrant, officialPortalUrl, matchFactors), roadmap (3 objects: Days 1–30, Days 31–60, Days 61–90), isConfirmed: true, confirmedAt.`
+                  },
+                  { role: 'user', content: 'Output the full customized JSON profile.' }
+                ],
+                response_format: { type: 'json_object' }
+              })
+            });
 
-        const data = await res.json();
-        const content = data.choices?.[0]?.message?.content;
-        if (content) {
-          const parsed = JSON.parse(content);
-          if (parsed.occupation && parsed.currentSkills && parsed.matchedPrograms && parsed.matchedPrograms.length > 0) {
-            parsed.id = parsed.id || `profile-${Date.now()}`;
-            parsed.citizenName = parsed.citizenName || this.slots.citizenName || (lang === 'kn' ? 'ಅರ್ಜಿದಾರ (Citizen)' : lang === 'hi' ? 'नागरिक (Citizen)' : 'Applicant (Citizen)');
-            parsed.location = parsed.location || this.slots.location || 'Karnataka Hub';
-            parsed.education = parsed.education || this.slots.education || 'Higher Secondary / Degree Foundation';
-            parsed.isConfirmed = true;
-            parsed.confirmedAt = new Date().toISOString();
-            parsed.matchedPrograms = parsed.matchedPrograms.map((p: any) => ({
-              ...p,
-              officialPortalUrl: sanitizeOfficialPortalUrl(p.officialPortalUrl, p.title)
-            }));
-            const saved = databaseService.saveBeneficiary(parsed as LivelihoodProfile);
-            return saved.profile;
+            const data = await res.json();
+            const content = data.choices?.[0]?.message?.content;
+            if (content) {
+              const parsed = JSON.parse(content);
+              if (parsed.occupation && parsed.currentSkills && parsed.matchedPrograms && parsed.matchedPrograms.length > 0) {
+                parsed.id = parsed.id || `profile-${Date.now()}`;
+                parsed.citizenName = parsed.citizenName || this.slots.citizenName || (lang === 'kn' ? 'ಅರ್ಜಿದಾರ (Citizen)' : lang === 'hi' ? 'नागरिक (Citizen)' : 'Applicant (Citizen)');
+                parsed.location = parsed.location || this.slots.location || 'Karnataka Hub';
+                parsed.education = parsed.education || this.slots.education || 'Higher Secondary / Degree Foundation';
+                parsed.isConfirmed = true;
+                parsed.confirmedAt = new Date().toISOString();
+                parsed.matchedPrograms = parsed.matchedPrograms.map((p: any) => ({
+                  ...p,
+                  officialPortalUrl: sanitizeOfficialPortalUrl(p.officialPortalUrl, p.title)
+                }));
+                const saved = databaseService.saveBeneficiary(parsed as LivelihoodProfile);
+                return saved.profile;
+              }
+            }
+          } catch (mErr) {
+            console.warn(`Groq model ${model} profile gen failed:`, mErr);
           }
         }
       } catch (grokErr) {
