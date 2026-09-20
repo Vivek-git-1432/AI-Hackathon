@@ -359,7 +359,7 @@ export class AgentPipelineService {
     }
 
     // 1. Confirmation Screen Handling (YES / NO / CORRECTION Branch)
-    if (currentState === 'READBACK_CONFIRMATION') {
+    if (currentState === 'READBACK_CONFIRMATION' || (this.isAffirmative(textLower) && this.slots.occupation)) {
       const isYes = textTrimmed === 'CONFIRMED_YES' || this.isAffirmative(textLower);
       const isNo = textTrimmed === 'CORRECTION_NO' || this.isNegative(textLower);
 
@@ -596,28 +596,12 @@ CRITICAL HUMAN-LIKE CONVERSATIONAL RULES:
    - If citizen says "Good morning", "Hello", "Hi", "Namaskara", "Namaste", greet them back politely as Saksham Voice and inquire about their name or what work they do.
    - NEVER misclassify greetings or pleasantries as an occupation!
 
-3. STRICT MULTI-TURN PROBING PROTOCOL (ONE STEP AT A TIME):
-   Systematically collect essential profile slots before finalizing:
-   - Name & Location
-   - Primary Occupation / Studies / Trade
-   - Experience Duration (Years)
-   - Tools, Technologies, Equipment used daily
-   - Future Career Aspirations & Skilling Goals
-
-   RULES FOR PROBING:
-   - If only occupation & experience are given (e.g. "I am a software engineer with 10 years experience"):
-     * extractedOccupation = "Software Engineer"
-     * extractedExperienceYears = 10
-     * extractedTools = null
-     * extractedAspiration = null
-     * isReadyForReadback = false
-     * spokenText: Acknowledge their role warmly by name and ask a natural follow-up probing what specific tools, languages, frameworks, or equipment they work with daily!
-   - If tools are known but aspiration is missing:
-     * isReadyForReadback = false
-     * spokenText: Ask about their career aspirations, certifications, or leadership goals.
-   - ONLY when ALL SLOTS (Occupation, Experience, Tools, Aspiration) ARE KNOWN:
+3. FAST-TRACK INTELLIGENT REASONING PROTOCOL:
+   - If citizen has ONLY introduced their name so far without any trade/work, warmly greet them by name and ask what work, trade, or studies they currently do.
+   - When occupation / trade is mentioned (or known):
+     * Extract or intelligently infer their occupation, experience years (default 1 if unspecified), typical tools/technologies, and likely career aspirations.
      * Set "isReadyForReadback": true
-     * spokenText: Formulate a clear, polite spoken read-back summarizing all points and asking for explicit confirmation (YES/NO).
+     * In "spokenText": Address the candidate warmly by name, formulate a concise, clear read-back summarizing their background (Name, Trade, Experience, Tools, Aspirations), and ask for their confirmation (Yes/No)!
 
 Respond in strict JSON with schema:
 {
@@ -989,110 +973,15 @@ Rules:
       };
     }
 
-    // If Experience Years is missing, ask for experience
+    // Auto-populate intelligent defaults for tools, experience, and aspirations if not yet set
     if (this.slots.experienceYears === null) {
-      const occ = this.slots.occupation;
-      let prompt = '';
-      let trans = '';
-      const prefix = activeName ? `${activeName}, ` : '';
-
-      switch (lang) {
-        case 'kn':
-          prompt = `ಅದ್ಭುತ ${prefix}! ನೀವು "${occ}" ಕ್ಷೇತ್ರದಲ್ಲಿ ಎಷ್ಟು ಸಮಯ ಅಥವಾ ವರ್ಷಗಳಿಂದ ತೊಡಗಿಸಿಕೊಂಡಿದ್ದೀರಿ?`;
-          trans = `Great ${prefix}! How many years of experience or practice do you have in ${occ}?`;
-          break;
-        case 'hi':
-          prompt = `बहुत अच्छा ${prefix}! आप "${occ}" में कितने समय या सालों से जुड़े हुए हैं?`;
-          trans = `Great ${prefix}! How many years of experience do you have in ${occ}?`;
-          break;
-        default:
-          prompt = `Great ${prefix}! How many years of experience or practice do you have in ${occ}?`;
-          trans = `Great ${prefix}! How many years of experience or practice do you have in ${occ}?`;
-      }
-
-      return {
-        spokenText: prompt,
-        englishTranslation: trans,
-        nextState: 'INTERVIEW_EXPERIENCE',
-        activeNodeId: 'profile_agent',
-        reasoningStep: {
-          step: 'Experience Duration Probing',
-          observation: `Locked Occupation: "${this.slots.occupation}". Probing tenure for ${activeName || 'Citizen'}.`,
-          deduplicationCheck: 'Occupation is confirmed. Prompting experience tenure.',
-          decision: 'Ask how many years they have practiced their craft or studies',
-          confidence: 96
-        }
-      };
+      this.slots.experienceYears = 1;
     }
-
-    // If Tools is missing, ask for tools
-    if (this.slots.toolsEquipment === null) {
-      let prompt = '';
-      let trans = '';
-      const prefix = activeName ? `${activeName}, ` : '';
-
-      switch (lang) {
-        case 'kn':
-          prompt = `${prefix}ನಿಮ್ಮ ಕೆಲಸ ಅಥವಾ ಅಧ್ಯಯನದಲ್ಲಿ ನೀವು ಬಳಸುವ ಮುಖ್ಯ ಉಪಕರಣಗಳು, ಸಾಫ್ಟ್‌ವೇರ್ ಅಥವಾ ಸಲಕರಣೆಗಳು ಯಾವುವು?`;
-          trans = `${prefix}what specific tools, equipment, software, or systems do you use in your daily work or studies?`;
-          break;
-        case 'hi':
-          prompt = `${prefix}आप अपने काम या अध्ययन में मुख्य रूप से कौन-से टूल्स, उपकरण या सॉफ्टवेयर इस्तेमाल करते हैं?`;
-          trans = `${prefix}what tools, equipment, or software do you use?`;
-          break;
-        default:
-          prompt = `${prefix}what specific tools, equipment, software platforms, or systems do you use in your work or studies?`;
-          trans = `${prefix}what specific tools, equipment, software platforms, or systems do you use in your work or studies?`;
-      }
-
-      return {
-        spokenText: prompt,
-        englishTranslation: trans,
-        nextState: 'INTERVIEW_TOOLS_ACTIVITIES',
-        activeNodeId: 'profile_agent',
-        reasoningStep: {
-          step: 'Tooling & Implement Mapping',
-          observation: `Captured Occupation: "${this.slots.occupation}", Tenure: ${this.slots.experienceYears} Years for ${activeName || 'Citizen'}.`,
-          deduplicationCheck: 'Tools slot is empty. Probing physical/digital implements.',
-          decision: 'Inquire about daily equipment and tool usage',
-          confidence: 95
-        }
-      };
+    if (!this.slots.toolsEquipment) {
+      this.slots.toolsEquipment = this.detectTools(userInput) || this.getDefaultToolsForSector(this.slots.occupation);
     }
-
-    // If Aspiration is missing, ask for aspirations
-    if (this.slots.aspiration === null) {
-      let prompt = '';
-      let trans = '';
-      const prefix = activeName ? `${activeName}, ` : '';
-
-      switch (lang) {
-        case 'kn':
-          prompt = `${prefix}ನಿಮ್ಮ ಭವಿಷ್ಯದ ವೃತ್ತಿಜೀವನ ಮತ್ತು ಆಕಾಂಕ್ಷೆಗಳೇನು? (ಉದಾಹರಣೆಗೆ: ಸಿವಿಲ್ ಸರ್ವೀಸಸ್/IAS/IPS, ಹೈ-ಟೆಕ್ ಕೌಶಲ್ಯಗಳು, ಅಥವಾ ಉದ್ಯಮ)?`;
-          trans = `${prefix}what are your future career aspirations and goals (e.g. Civil Services/IAS/IPS, High-Tech skills, or Enterprise)?`;
-          break;
-        case 'hi':
-          prompt = `${prefix}आपके भविष्य के लक्ष्य और करियर आकांक्षाएं क्या हैं (जैसे: सिविल सेवा/IAS/IPS, तकनीकी कौशल, या अपना उद्यम)?`;
-          trans = `${prefix}what are your career aspirations (e.g. Civil Services/IAS/IPS, Tech skills, or Enterprise)?`;
-          break;
-        default:
-          prompt = `${prefix}what are your future career aspirations and goals (for example: Civil Services / IAS / IPS, advanced technical certifications, or leadership roles)?`;
-          trans = `${prefix}what are your future career aspirations and goals?`;
-      }
-
-      return {
-        spokenText: prompt,
-        englishTranslation: trans,
-        nextState: 'INTERVIEW_ASPIRATION',
-        activeNodeId: 'skill_mapping_agent',
-        reasoningStep: {
-          step: 'Aspirational Opportunity Probing',
-          observation: `Known Trade=${this.slots.occupation}, Exp=${this.slots.experienceYears}yr, Tools=${this.slots.toolsEquipment} for ${activeName || 'Citizen'}.`,
-          deduplicationCheck: 'Capturing forward-looking skilling interest for scheme matching.',
-          decision: 'Inquire about desired career aspirations',
-          confidence: 94
-        }
-      };
+    if (!this.slots.aspiration) {
+      this.slots.aspiration = this.detectAspiration(userInput) || this.getDefaultAspirationForSector(this.slots.occupation);
     }
 
     // All Slots Filled: Formulate Verbatim Read-back with candidate name
@@ -1437,13 +1326,84 @@ Rules:
   }
 
   public isAffirmative(text: string): boolean {
-    const keywords = ['yes', 'correct', 'right', 'accurate', 'true', 'sure', 'ಹೌದು', 'ಸರಿ', 'ಸರಿಯಾಗಿದೆ', 'ಖಂಡಿತ', 'हाँ', 'सही', 'बिल्कुल', 'అవును', 'ஆம்', 'होय'];
-    return keywords.some(kw => text.includes(kw));
+    const t = text.toLowerCase().trim();
+    if (t === 'confirmed_yes' || t === 'yes' || t === 'y') return true;
+    const keywords = [
+      'yes', 'confirm', 'confirmed', 'correct', 'accurate', 'right', 'true', 'sure', 'perfect', 'fine',
+      'done', 'ok', 'okay', 'proceed', 'go ahead', 'all good', 'good', 'looks good', 'that is correct',
+      'thats correct', 'it is correct', 'its correct', 'it is confirmed', 'its confirmed', 'it is right',
+      'thats right', 'that is right', 'yep', 'yeah', 'yup', 'agree', 'agreed', 'approved', 'save',
+      'generate', 'continue', 'accept', 'accepted',
+      'ಹೌದು', 'ಸರಿ', 'ಸರಿಯಾಗಿದೆ', 'ಖಂಡಿತ', 'ಖಚಿತ', 'ಖಚಿತಪಡಿಸಿ', 'ಮುಂದುವರಿಯಿರಿ', 'ಕನ್ಫರ್ಮ್', 'ಸರಿ ಇದೆ', 'ಹೌದ', 'ಅಸ್ತು', 'ನಿಜ', 'ಕರೆಕ್ಟ್',
+      'हाँ', 'हाँजी', 'सही', 'बिल्कुल', 'कन्फर्म', 'कन्फर्म है', 'पुष्टि', 'पक्का', 'ठीक', 'ठीक है', 'आगे बढ़ें', 'स्वीकृत', 'करेक्ट', 'सही है',
+      'అవును', 'సరే', 'ఖరారు', 'ஆம்', 'சரி', 'உறுதி', 'हो', 'होय', 'बरोबर', 'योग्य'
+    ];
+    return keywords.some(kw => t.includes(kw));
   }
 
   public isNegative(text: string): boolean {
+    const t = text.toLowerCase().trim();
+    if (t === 'correction_no' || t === 'no' || t === 'n') return true;
     const keywords = ['no', 'wrong', 'incorrect', 'not', 'change', 'ಇಲ್ಲ', 'ತಪ್ಪು', 'ಅಲ್ಲ', 'ತಿದ್ದು', 'नहीं', 'गलत', 'कादु', 'இல்லை', 'नाही'];
-    return keywords.some(kw => text.includes(kw));
+    return keywords.some(kw => t.includes(kw));
+  }
+
+  public getDefaultToolsForSector(occ: string): string {
+    const o = occ.toLowerCase();
+    if (o.includes('software') || o.includes('ai') || o.includes('engineer') || o.includes('code') || o.includes('comput')) {
+      return 'Computer Systems, Code Editors & Cloud Development Tools';
+    }
+    if (o.includes('civil') || o.includes('ias') || o.includes('ips') || o.includes('upsc') || o.includes('admin')) {
+      return 'Competitive Study Materials, Legal References & Governance Portals';
+    }
+    if (o.includes('event') || o.includes('catering') || o.includes('hotel') || o.includes('hospitality')) {
+      return 'Event Logistics Schedules, Catering Equipment & Client Coordination Tools';
+    }
+    if (o.includes('nurse') || o.includes('health') || o.includes('medical')) {
+      return 'Diagnostic Monitoring Kits, Patient Care Systems & Health Informatics';
+    }
+    if (o.includes('electr') || o.includes('solar') || o.includes('wireman')) {
+      return 'Digital Multimeters, Wire Strippers & Circuit Testers';
+    }
+    if (o.includes('tailor') || o.includes('garment') || o.includes('sewing')) {
+      return 'Motorized Sewing Machines, Pattern Cutters & Overlock Tools';
+    }
+    if (o.includes('farm') || o.includes('agri') || o.includes('crop') || o.includes('tractor')) {
+      return 'Tractors, Drip Irrigation Valves & Agricultural Implements';
+    }
+    if (o.includes('student') || o.includes('college') || o.includes('study')) {
+      return 'Academic Course Materials, Digital Learning Platforms & Computer Systems';
+    }
+    return 'Standard Professional Tools & Systems';
+  }
+
+  public getDefaultAspirationForSector(occ: string): string {
+    const o = occ.toLowerCase();
+    if (o.includes('software') || o.includes('ai') || o.includes('engineer') || o.includes('code') || o.includes('comput')) {
+      return 'Applied Artificial Intelligence, Cloud Systems & Agent Architecture';
+    }
+    if (o.includes('civil') || o.includes('ias') || o.includes('ips') || o.includes('upsc') || o.includes('admin')) {
+      return 'Civil Services Examination (IAS / IPS / State PSC) & Public Administration Leadership';
+    }
+    if (o.includes('event') || o.includes('catering') || o.includes('hotel') || o.includes('hospitality')) {
+      return 'Commercial Event Production, Corporate Hospitality & Large-Scale Operations';
+    }
+    if (o.includes('nurse') || o.includes('health') || o.includes('medical')) {
+      return 'Advanced Clinical Nursing, Emergency Triage & Hospital Coordination';
+    }
+    if (o.includes('electr') || o.includes('solar') || o.includes('wireman')) {
+      return 'Electric Vehicle Servicing & Certified Solar Grid Installation';
+    }
+    if (o.includes('tailor') || o.includes('garment') || o.includes('sewing')) {
+      return 'Digital CAD Pattern Design & Commercial Boutique Production';
+    }
+    if (o.includes('farm') || o.includes('agri') || o.includes('crop') || o.includes('tractor')) {
+      return 'Precision Drip Automation, Drone Monitoring & Solar Irrigation';
+    }
+    if (o.includes('student') || o.includes('college') || o.includes('study')) {
+      return 'Graduate Placement, Competitive Examinations & Industry Skill Certification';
+    }
+    return 'Career Growth, Professional Certification & Leadership';
   }
 
   public async generateFullAIProfile(

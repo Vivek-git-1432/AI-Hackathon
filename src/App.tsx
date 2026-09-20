@@ -317,6 +317,7 @@ export const App: React.FC = () => {
     if (res.updatedProfile) {
       setProfile(res.updatedProfile);
       if (res.nextState === 'RESULTS_VIEW') {
+        setRightPanelTab('passport');
         const citizenName = res.updatedProfile.citizenName || agentPipeline.getCitizenName() || 'Citizen Applicant';
         const bestScheme = res.updatedProfile.matchedPrograms?.[0];
         const matchStr = bestScheme ? `${bestScheme.title.slice(0, 18)}... (${bestScheme.matchPercentage}%)` : 'PMKVY 4.0 (95%)';
