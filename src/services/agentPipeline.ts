@@ -156,7 +156,39 @@ export class AgentPipelineService {
   };
 
   public setCitizenName(name: string) {
-    this.slots.citizenName = name.trim();
+    const cleaned = this.cleanExtractedName(name);
+    this.slots.citizenName = cleaned || name.trim();
+  }
+
+  public cleanExtractedName(rawName: string): string | null {
+    if (!rawName) return null;
+    let text = rawName.trim();
+    // Strip trailing or leading punctuation
+    text = text.replace(/^[^\w\u0C80-\u0CFF\u0900-\u097F]+|[^\w\u0C80-\u0CFF\u0900-\u097F]+$/g, '');
+
+    const tokens = text
+      .replace(/[,.:;!?'"()]+/g, ' ')
+      .split(/\s+/)
+      .map(w => w.trim())
+      .filter(Boolean);
+
+    const blacklist = new Set([
+      'self', 'myself', 'i', 'am', 'im', 'a', 'an', 'the', 'is', 'are', 'was', 'were', 'here',
+      'student', 'farmer', 'engineer', 'tailor', 'worker', 'doing', 'working', 'studying',
+      'ready', 'yes', 'no', 'saksham', 'voice', 'sir', 'madam', 'assist', 'assistant', 'there',
+      'who', 'what', 'where', 'how', 'when', 'good', 'morning', 'afternoon', 'evening', 'night',
+      'from', 'in', 'at', 'city', 'district', 'state', 'village', 'town', 'college', 'school',
+      'mr', 'mrs', 'ms', 'dr', 'shri', 'smt',
+      'ನಮಸ್ಕಾರ', 'ಶುಭೋದಯ', 'ನಾನು', 'ಹೆಸರು', 'ವಿದ್ಯಾರ್ಥಿ', 'ಕೆಲಸ', 'ಇದ್ದೇನೆ', 'ಆಗಿದ್ದೇನೆ', 'ಇವರು',
+      'नमस्ते', 'शुभ', 'नाम', 'छात्र', 'काम', 'है', 'हूँ', 'हुँ'
+    ]);
+
+    const validTokens = tokens.filter(tok => !blacklist.has(tok.toLowerCase()));
+    if (validTokens.length === 0) return null;
+
+    return validTokens
+      .map(tok => tok.charAt(0).toUpperCase() + tok.slice(1).toLowerCase())
+      .join(' ');
   }
 
   public getCitizenName(): string | null {
@@ -334,7 +366,7 @@ export class AgentPipelineService {
     // Check if user stated their name in natural speech
     const detectedName = this.detectName(textTrimmed);
     if (detectedName && !this.slots.citizenName) {
-      this.slots.citizenName = detectedName;
+      this.slots.citizenName = this.cleanExtractedName(detectedName) || detectedName;
     }
 
     // 0. Session Reset / "Start from the beginning" Command
@@ -566,7 +598,7 @@ export class AgentPipelineService {
   ): Promise<AgentPipelineResponse | null> {
     const ai = new GoogleGenAI({ apiKey: this.geminiKey });
 
-    const cName = this.slots.citizenName || '';
+    const cName = this.slots.citizenName ? (this.cleanExtractedName(this.slots.citizenName) || this.slots.citizenName) : '';
 
     const systemInstruction = `
 You are SAKSHAM VOICE (ಸಕ್ಷಮ್ ವಾಯ್ಸ್), an empathetic, polite, highly intelligent conversational AI counselor for livelihood skill mapping and government welfare/skilling schemes across India.
@@ -574,19 +606,18 @@ Target Language: "${lang}". Respond strictly in language "${lang}".
 
 CRITICAL HUMAN-LIKE CONVERSATIONAL RULES:
 1. CITIZEN NAME & WARM ADDRESS:
-   - If the citizen's name is known (e.g. "${cName}"), ALWAYS address them respectfully and warmly by their name (e.g., "Namaste ${cName}!", "ನಮಸ್ಕಾರ ${cName}!", "नमस्ते ${cName}!").
-   - If citizen introduces themselves (e.g., "I am Vijay", "My name is Vivek from Bengaluru"), extract their name and location, greet them warmly by name, and ask what work, trade, or studies they currently do.
+   - If the candidate's name is known (e.g., "${cName}"), ALWAYS greet and address them respectfully and warmly by name (e.g., "Namaste ${cName}!", "ನಮಸ್ಕಾರ ${cName}!", "नमस्ते ${cName}!").
+   - If candidate introduces themselves with phrases like "Self Vijay", "Myself Vijay", "Self, Vijay", "I am Vijay", "My name is Vijay", extract ONLY the person's actual name ("Vijay"). NEVER include "Self", "Myself", "Student", or "Here" in the name!
 
-2. GREETINGS & INTRODUCTIONS:
-   - If citizen says "Good morning", "Hello", "Hi", "Namaskara", "Namaste", greet them back politely as Saksham Voice and inquire about their name or what work they do.
+2. NATURAL STEP-BY-STEP PROBING (NEVER ASK FOR EVERYTHING ALL AT ONCE):
+   - Turn 1 (Only Name provided, trade unknown): Greet warmly by name (e.g., "Namaste ${cName || 'friend'}! Welcome to Saksham Voice. Tell me about the work, trade, course of study, or profession you currently do.")
+   - Turn 2 (Trade/Studies provided, experience/goals unknown): Acknowledge their trade warmly and ask how long they have been doing it and what their main career goals or aspirations are.
+   - Turn 3 (Trade + Experience + Goals known): Formulate a clear, concise read-back summarizing their details (Name, Trade, Experience, Tools, Aspirations) and ask for confirmation ("Is this correct? / ಇದು ಸರಿಯೇ?").
+   - NEVER ask for city, occupation, experience, tools, and aspirations in a single sentence. Keep the conversation natural, friendly, and step-by-step.
+
+3. GREETINGS & INTRODUCTIONS:
+   - If citizen says "Good morning", "Hello", "Hi", "Namaskara", "Namaste", greet them back politely as Saksham Voice.
    - NEVER misclassify greetings or pleasantries as an occupation!
-
-3. FAST-TRACK INTELLIGENT REASONING PROTOCOL:
-   - If citizen has ONLY introduced their name so far without any trade/work, warmly greet them by name and ask what work, trade, or studies they currently do.
-   - When occupation / trade is mentioned (or known):
-     * Extract or intelligently infer their occupation, experience years (default 1 if unspecified), typical tools/technologies, and likely career aspirations.
-     * Set "isReadyForReadback": true
-     * In "spokenText": Address the candidate warmly by name, formulate a concise, clear read-back summarizing their background (Name, Trade, Experience, Tools, Aspirations), and ask for their confirmation (Yes/No)!
 
 Respond in strict JSON with schema:
 {
@@ -632,8 +663,11 @@ Current Known Slots: ${JSON.stringify(this.slots)}
 
         const parsed = JSON.parse(response.text?.trim() || '{}');
 
-        if (parsed.extractedCitizenName && !this.slots.citizenName) {
-          this.slots.citizenName = parsed.extractedCitizenName;
+        if (parsed.extractedCitizenName) {
+          const cleanN = this.cleanExtractedName(parsed.extractedCitizenName);
+          if (cleanN && !this.slots.citizenName) {
+            this.slots.citizenName = cleanN;
+          }
         }
         if (parsed.extractedLocation && !this.slots.location) {
           this.slots.location = parsed.extractedLocation;
@@ -698,14 +732,41 @@ Current Known Slots: ${JSON.stringify(this.slots)}
     lang: SupportedLanguage,
     history: DialogueTurn[]
   ): Promise<AgentPipelineResponse | null> {
-    const cName = this.slots.citizenName || '';
-    const systemInstruction = `You are SAKSHAM VOICE, an empathetic and polite conversational AI counselor in language "${lang}".
-Rules:
-1. If the citizen's name is known ("${cName}"), ALWAYS address them respectfully by their name in every turn (e.g. "Namaste ${cName}!", "नमस्ते ${cName}!").
-2. Do NOT treat greetings ("good morning", "hello") as an occupation.
-3. If asked about identity, explain you are Saksham Voice.
-4. Extract citizenName, location, occupation, experienceYears, toolsEquipment, and aspiration accurately without forcing defaults.
-5. Respond in strict JSON format with keys: intent, extractedCitizenName, extractedLocation, extractedOccupation, extractedExperienceYears, extractedTools, extractedAspiration, isReadyForReadback, spokenText (in "${lang}"), englishTranslation, reasoningObservation, reasoningDecision, confidence.`;
+    const cName = this.slots.citizenName ? (this.cleanExtractedName(this.slots.citizenName) || this.slots.citizenName) : '';
+    const systemInstruction = `You are SAKSHAM VOICE (ಸಕ್ಷಮ್ ವಾಯ್ಸ್), an empathetic, polite conversational AI counselor for skill mapping and government welfare/skilling schemes across India.
+Target Language: "${lang}". Respond strictly in "${lang}".
+
+CRITICAL HUMAN-LIKE CONVERSATIONAL RULES:
+1. CANDIDATE NAME:
+   - If candidate name is known (e.g., "${cName}"), ALWAYS greet and address them respectfully by name (e.g. "Namaste ${cName}!", "ನಮಸ್ಕಾರ ${cName}!", "नमस्ते ${cName}!").
+   - If candidate introduces themselves (e.g., "Self Vijay", "Myself Vijay", "Self, Vijay", "I am Vijay", "My name is Vijay"), extract ONLY the actual first/last name ("Vijay"). NEVER include "Self", "Myself", "Student", or "Here" in the name!
+
+2. NATURAL STEP-BY-STEP PROBING (NEVER ASK FOR EVERYTHING ALL AT ONCE):
+   - Turn 1 (Only Name provided, trade unknown): Greet warmly by name (e.g., "Namaste ${cName || 'friend'}! Welcome to Saksham Voice. Tell me about the work, trade, course of study, or profession you currently do.")
+   - Turn 2 (Trade/Studies provided, experience/goals unknown): Acknowledge their trade warmly and ask how long they have been doing it and what their main career goals or aspirations are.
+   - Turn 3 (Trade + Experience + Goals known): Formulate a clear, concise read-back summarizing their details (Name, Trade, Experience, Tools, Aspirations) and ask for confirmation ("Is this correct? / ಇದು ಸರಿಯೇ?").
+   - NEVER dump a question asking for city, occupation, experience, tools, and aspirations in a single sentence! Keep the dialogue natural and friendly.
+
+3. GREETINGS & INTRODUCTIONS:
+   - If citizen says "Good morning", "Hello", "Hi", "Namaskara", "Namaste", greet them back politely as Saksham Voice.
+   - NEVER misclassify greetings or pleasantries as an occupation!
+
+Respond in strict JSON format:
+{
+  "intent": "NAME_GREETING" | "TRADE_PROBING" | "READBACK_CONFIRM",
+  "extractedCitizenName": string or null,
+  "extractedLocation": string or null,
+  "extractedOccupation": string or null,
+  "extractedExperienceYears": number or null,
+  "extractedTools": string or null,
+  "extractedAspiration": string or null,
+  "isReadyForReadback": boolean,
+  "spokenText": string (in "${lang}"),
+  "englishTranslation": string,
+  "reasoningObservation": string,
+  "reasoningDecision": string,
+  "confidence": number
+}`;
 
     const messages = [
       { role: 'system', content: systemInstruction },
@@ -734,7 +795,12 @@ Rules:
     if (!content) return null;
 
     const parsed = JSON.parse(content);
-    if (parsed.extractedCitizenName && !this.slots.citizenName) this.slots.citizenName = parsed.extractedCitizenName;
+    if (parsed.extractedCitizenName) {
+      const cleanN = this.cleanExtractedName(parsed.extractedCitizenName);
+      if (cleanN && !this.slots.citizenName) {
+        this.slots.citizenName = cleanN;
+      }
+    }
     if (parsed.extractedLocation && !this.slots.location) this.slots.location = parsed.extractedLocation;
     if (parsed.extractedOccupation) this.slots.occupation = parsed.extractedOccupation;
     if (parsed.extractedExperienceYears !== undefined && parsed.extractedExperienceYears !== null) {
@@ -853,7 +919,7 @@ Rules:
     // 3. Extract Name & Location if detected
     const foundName = this.detectName(userInput);
     if (foundName && !this.slots.citizenName) {
-      this.slots.citizenName = foundName;
+      this.slots.citizenName = this.cleanExtractedName(foundName) || foundName;
     }
 
     const foundLoc = this.detectLocation(userInput);
@@ -1109,28 +1175,30 @@ Rules:
   }
 
   public detectName(text: string): string | null {
-    const t = text.trim();
-    // 1. Regex patterns: "My name is Vivek", "I am Vivek", "This is Vivek", "Hi Vivek", "ನನ್ನ ಹೆಸರು ವಿವೇಕ್", "मेरा नाम विवेक है"
-    const nameRegex = /(?:my name is|i am|i'm|this is|call me|name is|ಹೆಸರು|ನನ್ನ ಹೆಸರು|ನಾನು|नाम है|मेरा नाम|नाम|hi|hello)\s+([A-Za-z\u0C80-\u0CFF\u0900-\u097F]+)/i;
-    const match = t.match(nameRegex);
+    if (!text) return null;
+    let t = text.trim();
+    t = t.replace(/[.,!?;:]+$/, '').trim();
+
+    // 1. Explicit Intro regexes: "Self Vijay", "Myself Vijay", "Self, Vijay", "I am Vijay", "My name is Vijay", "This is Vijay", "I'm Vijay", "Call me Vijay", "ಹೆಸರು ವಿಜಯ್", "ನನ್ನ ಹೆಸರು ವಿಜಯ್", "मेरा नाम विजय है"
+    const introRegex = /(?:myself(?:\s+is)?|self(?:,|:)?|my name is|i am|i'm|this is|call me|name is|it's|its|ನನ್ನ ಹೆಸರು|ಹೆಸರು|ನಾನು|मेरा नाम|नाम है|नाम)\s+([A-Za-z\u0C80-\u0CFF\u0900-\u097F]+(?:\s+[A-Za-z\u0C80-\u0CFF\u0900-\u097F]+)?)/i;
+    const match = t.match(introRegex);
     if (match && match[1]) {
-      const candidate = match[1].trim();
-      const lower = candidate.toLowerCase();
-      const blacklist = ['a', 'an', 'the', 'student', 'farmer', 'engineer', 'tailor', 'worker', 'doing', 'working', 'here', 'ready', 'yes', 'no', 'saksham', 'voice', 'sir', 'madam', 'assist', 'assistant', 'there', 'who', 'what', 'where', 'how', 'when', 'good', 'morning', 'afternoon', 'evening', 'night', 'ನಮಸ್ಕಾರ', 'ಶುಭೋದಯ', 'नमस्ते'];
-      if (!blacklist.includes(lower) && candidate.length >= 2) {
-        return candidate.charAt(0).toUpperCase() + candidate.slice(1);
-      }
+      const candidate = match[1].replace(/[,.:;]+$/, '').trim();
+      const cleaned = this.cleanExtractedName(candidate);
+      if (cleaned) return cleaned;
     }
 
-    // 2. Direct 1-2 word name input (e.g. "Vijay", "Vivek", "Basavaraj Patil", "Lakshmi Bai")
-    const words = t.split(/\s+/);
-    if (words.length >= 1 && words.length <= 2) {
-      const w1 = words[0].toLowerCase().replace(/[^a-zA-Z\u0C80-\u0CFF\u0900-\u097F]/g, '');
-      const blacklist = ['hi', 'hello', 'hey', 'start', 'beginning', 'yes', 'no', 'reset', 'restart', 'good', 'morning', 'ok', 'okay', 'namaste', 'namaskara', 'vanakkam', 'ನಮಸ್ಕಾರ', 'नमस्ते', 'work', 'study', 'trade'];
-      if (!blacklist.includes(w1) && w1.length >= 2) {
-        return words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-      }
+    // 2. Direct 1-3 words where one of the words is an Indian / English proper name (e.g. "Vijay", "Vijay Kumar", "Basavaraj Patil")
+    // First remove conversational leading words like "Self,", "Myself", "Hi", "Hello"
+    let stripped = t.replace(/^(?:self[,:]?|myself|hi|hello|hey|namaste|namaskara|vanakkam|ನಮಸ್ಕಾರ|नमस्ते)\s+/i, '').trim();
+    stripped = stripped.replace(/[.,!?;:]+$/, '').trim();
+
+    const words = stripped.split(/\s+/).filter(Boolean);
+    if (words.length >= 1 && words.length <= 3) {
+      const cleaned = this.cleanExtractedName(words.join(' '));
+      if (cleaned) return cleaned;
     }
+
     return null;
   }
 
