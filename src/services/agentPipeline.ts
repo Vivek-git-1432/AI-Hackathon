@@ -359,7 +359,7 @@ export class AgentPipelineService {
     }
 
     // 1. Confirmation Screen Handling (YES / NO / CORRECTION Branch)
-    if (currentState === 'READBACK_CONFIRMATION' || (this.isAffirmative(textLower) && this.slots.occupation)) {
+    if (currentState === 'READBACK_CONFIRMATION' || textTrimmed === 'CONFIRMED_YES' || textTrimmed === 'CORRECTION_NO') {
       const isYes = textTrimmed === 'CONFIRMED_YES' || this.isAffirmative(textLower);
       const isNo = textTrimmed === 'CORRECTION_NO' || this.isNegative(textLower);
 
@@ -973,6 +973,42 @@ Rules:
       };
     }
 
+    // If user provided occupation but experience or aspirations are not yet given, ask a friendly follow-up:
+    if (this.slots.experienceYears === null && !this.detectAspiration(userInput)) {
+      const occ = this.slots.occupation;
+      let prompt = '';
+      let trans = '';
+      const prefix = activeName ? `${activeName}, ` : '';
+
+      switch (lang) {
+        case 'kn':
+          prompt = `ಅದ್ಭುತ ${prefix}! ನೀವು "${occ}" ಕ್ಷೇತ್ರದಲ್ಲಿ ಎಷ್ಟು ಸಮಯ ಅಥವಾ ವರ್ಷಗಳಿಂದ ತೊಡಗಿಸಿಕೊಂಡಿದ್ದೀರಿ ಮತ್ತು ನಿಮ್ಮ ಮುಖ್ಯ ವೃತ್ತಿ ಆಕಾಂಕ್ಷೆಗಳೇನು (ಉದಾ: ಎಐ, ಕ್ಲೌಡ್, ಅಥವಾ ಸಿವಿಲ್ ಸರ್ವೀಸಸ್)?`;
+          trans = `Great ${prefix}! How many years of experience or studies do you have in ${occ}, and what are your main career aspirations?`;
+          break;
+        case 'hi':
+          prompt = `बहुत अच्छा ${prefix}! "${occ}" में आपका कितने वर्षों का अनुभव या अध्ययन है, और आपके करियर के मुख्य लक्ष्य क्या हैं?`;
+          trans = `Great ${prefix}! How many years of experience do you have in ${occ}, and what are your career goals?`;
+          break;
+        default:
+          prompt = `Great ${prefix}! How many years of experience or studies do you have in ${occ}, and what are your main career goals or aspirations (for example: AI, Cloud Development, or Civil Services)?`;
+          trans = `Great ${prefix}! How many years of experience do you have in ${occ}, and what are your career aspirations?`;
+      }
+
+      return {
+        spokenText: prompt,
+        englishTranslation: trans,
+        nextState: 'INTERVIEW_ASPIRATION',
+        activeNodeId: 'profile_agent',
+        reasoningStep: {
+          step: 'Experience & Aspiration Probing',
+          observation: `Captured Occupation: "${this.slots.occupation}". Inquiring tenure and goals for ${activeName || 'Citizen'}.`,
+          deduplicationCheck: 'Occupation is confirmed. Probing experience and career goal.',
+          decision: 'Ask for experience duration and aspirations',
+          confidence: 96
+        }
+      };
+    }
+
     // Auto-populate intelligent defaults for tools, experience, and aspirations if not yet set
     if (this.slots.experienceYears === null) {
       this.slots.experienceYears = 1;
@@ -1328,17 +1364,16 @@ Rules:
   public isAffirmative(text: string): boolean {
     const t = text.toLowerCase().trim();
     if (t === 'confirmed_yes' || t === 'yes' || t === 'y') return true;
-    const keywords = [
-      'yes', 'confirm', 'confirmed', 'correct', 'accurate', 'right', 'true', 'sure', 'perfect', 'fine',
-      'done', 'ok', 'okay', 'proceed', 'go ahead', 'all good', 'good', 'looks good', 'that is correct',
-      'thats correct', 'it is correct', 'its correct', 'it is confirmed', 'its confirmed', 'it is right',
-      'thats right', 'that is right', 'yep', 'yeah', 'yup', 'agree', 'agreed', 'approved', 'save',
-      'generate', 'continue', 'accept', 'accepted',
+    const regex = /\b(yes|confirm|confirmed|correct|accurate|right|true|sure|perfect|fine|done|ok|okay|proceed|yep|yeah|yup|agree|agreed|approved|save|continue)\b/i;
+    if (regex.test(t)) return true;
+    const phrases = [
+      'that is correct', 'thats correct', 'it is correct', 'its correct', 'it is confirmed', 'its confirmed',
+      'that is right', 'thats right', 'it is right', 'its right', 'looks good', 'all good', 'go ahead',
       'ಹೌದು', 'ಸರಿ', 'ಸರಿಯಾಗಿದೆ', 'ಖಂಡಿತ', 'ಖಚಿತ', 'ಖಚಿತಪಡಿಸಿ', 'ಮುಂದುವರಿಯಿರಿ', 'ಕನ್ಫರ್ಮ್', 'ಸರಿ ಇದೆ', 'ಹೌದ', 'ಅಸ್ತು', 'ನಿಜ', 'ಕರೆಕ್ಟ್',
       'हाँ', 'हाँजी', 'सही', 'बिल्कुल', 'कन्फर्म', 'कन्फर्म है', 'पुष्टि', 'पक्का', 'ठीक', 'ठीक है', 'आगे बढ़ें', 'स्वीकृत', 'करेक्ट', 'सही है',
-      'అవును', 'సరే', 'ఖరారు', 'ஆம்', 'சரி', 'உறுதி', 'हो', 'होय', 'बरोबर', 'योग्य'
+      'అవును', 'సరే', 'ఖరారు', 'ஆம்', 'சரி', 'உறுதி', 'होय', 'बरोबर', 'योग्य'
     ];
-    return keywords.some(kw => t.includes(kw));
+    return phrases.some(p => t === p || t.includes(p));
   }
 
   public isNegative(text: string): boolean {
