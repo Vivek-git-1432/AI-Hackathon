@@ -190,9 +190,13 @@ export const App: React.FC = () => {
 
   const handleToggleMic = () => {
     if (micState === 'LISTENING') {
+      const interim = transcriptInterim;
       voiceService.stopListening();
       setMicState('IDLE');
       setTranscriptInterim('');
+      if (interim && interim.trim().length > 0) {
+        handleProcessUserInput(interim.trim());
+      }
     } else {
       startListeningInternal();
     }
@@ -651,11 +655,12 @@ export const App: React.FC = () => {
         )}
       </main>
 
-      {/* AI Settings / Multi-Model AI Key Modal */}
+      {/* AI Settings / Multi-Model AI Key & Voice Modal */}
       <ApiKeyModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         currentProvider={provider}
+        currentLanguage={currentLanguage}
         geminiKey={apiKeys.gemini}
         grokKey={apiKeys.grok}
         onSaveConfig={handleSaveConfig}

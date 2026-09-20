@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Key, 
   ShieldCheck, 
@@ -8,14 +8,18 @@ import {
   Cpu,
   Zap,
   Sparkles,
-  Bot
+  Volume2,
+  User,
+  Sliders
 } from 'lucide-react';
-import type { AIProvider } from '../types';
+import type { AIProvider, SupportedLanguage } from '../types';
+import { voiceService, type VoiceGenderPreference } from '../services/voiceService';
 
 interface ApiKeyModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentProvider: AIProvider;
+  currentLanguage?: SupportedLanguage;
   geminiKey: string;
   grokKey: string;
   onSaveConfig: (config: { provider: AIProvider; geminiKey: string; grokKey: string }) => void;
@@ -25,6 +29,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
   isOpen,
   onClose,
   currentProvider,
+  currentLanguage = 'kn',
   geminiKey,
   grokKey,
   onSaveConfig
@@ -34,7 +39,50 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
   const [grokInput, setGrokInput] = useState(grokKey || '');
   const [savedSuccess, setSavedSuccess] = useState(false);
 
+  // Voice Persona Settings
+  const [voiceGender, setVoiceGender] = useState<VoiceGenderPreference>(voiceService.getVoiceSettings().gender);
+  const [selectedVoiceURI, setSelectedVoiceURI] = useState<string>(voiceService.getVoiceSettings().voiceURI);
+  const [voicePitch, setVoicePitch] = useState<number>(voiceService.getVoiceSettings().pitch);
+  const [voiceRate, setVoiceRate] = useState<number>(voiceService.getVoiceSettings().rate);
+  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [isPlayingTest, setIsPlayingTest] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      const loadVoices = () => {
+        const v = window.speechSynthesis.getVoices();
+        setAvailableVoices(v);
+      };
+      loadVoices();
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
+
+  const handleTestVoice = () => {
+    // Temporarily save settings to test
+    voiceService.setVoiceSettings({
+      gender: voiceGender,
+      voiceURI: selectedVoiceURI,
+      pitch: voicePitch,
+      rate: voiceRate
+    });
+
+    const sample = currentLanguage === 'kn'
+      ? 'ನಮಸ್ಕಾರ! ಇದು ನಿಮ್ಮ ಸಕ್ಷಮ್ ವಾಯ್ಸ್ ಸಹಾಯಕ.'
+      : currentLanguage === 'hi'
+      ? 'नमस्ते! यह आपका सक्षम वॉइस सहायक है।'
+      : 'Hello! This is your Saksham Voice agent speaking.';
+
+    setIsPlayingTest(true);
+    voiceService.speak(
+      sample,
+      currentLanguage,
+      () => setIsPlayingTest(true),
+      () => setIsPlayingTest(false)
+    );
+  };
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,6 +91,14 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
       geminiKey: geminiInput.trim(),
       grokKey: grokInput.trim()
     });
+
+    voiceService.setVoiceSettings({
+      gender: voiceGender,
+      voiceURI: selectedVoiceURI,
+      pitch: voicePitch,
+      rate: voiceRate
+    });
+
     setSavedSuccess(true);
     setTimeout(() => {
       setSavedSuccess(false);
@@ -77,18 +133,141 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
           </div>
           <div>
             <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-400">
-              Agentic AI Engine Settings
+              Settings & Customization
             </span>
             <h3 className="text-xl font-black text-slate-100">
-              Multi-Model AI Configuration
+              AI Engine & Voice Persona
             </h3>
           </div>
         </div>
 
-        {/* Provider Selector Cards */}
+        {/* SECTION 1: VOICE PERSONA & SPEECH SETTINGS */}
+        <div className="mb-6 p-4 rounded-2xl bg-slate-950/80 border border-amber-500/30 space-y-3.5">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-bold text-amber-400 flex items-center gap-1.5 uppercase tracking-wider">
+              <Volume2 className="w-4 h-4" /> Fixed Agent Voice Persona
+            </label>
+            <button
+              type="button"
+              onClick={handleTestVoice}
+              disabled={isPlayingTest}
+              className="px-3 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer"
+            >
+              <Volume2 className={`w-3.5 h-3.5 ${isPlayingTest ? 'animate-bounce text-amber-400' : ''}`} />
+              <span>{isPlayingTest ? 'Playing...' : 'Test Voice Audio'}</span>
+            </button>
+          </div>
+
+          {/* Gender / Persona Preset Selection */}
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setVoiceGender('female');
+                setVoicePitch(1.12);
+              }}
+              className={`p-2.5 rounded-xl border text-center text-xs font-bold flex flex-col items-center gap-1 transition-all ${
+                voiceGender === 'female'
+                  ? 'bg-amber-500/20 border-amber-500 text-amber-300 shadow-sm'
+                  : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'
+              }`}
+            >
+              <User className="w-4 h-4 text-pink-400" />
+              <span>👩 Female Voice</span>
+              <span className="text-[9px] font-normal text-slate-500">Natural & Warm</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setVoiceGender('male');
+                setVoicePitch(0.88);
+              }}
+              className={`p-2.5 rounded-xl border text-center text-xs font-bold flex flex-col items-center gap-1 transition-all ${
+                voiceGender === 'male'
+                  ? 'bg-cyan-500/20 border-cyan-500 text-cyan-300 shadow-sm'
+                  : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'
+              }`}
+            >
+              <User className="w-4 h-4 text-cyan-400" />
+              <span>👨 Male Voice</span>
+              <span className="text-[9px] font-normal text-slate-500">Clear & Direct</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setVoiceGender('system')}
+              className={`p-2.5 rounded-xl border text-center text-xs font-bold flex flex-col items-center gap-1 transition-all ${
+                voiceGender === 'system'
+                  ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300 shadow-sm'
+                  : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'
+              }`}
+            >
+              <Sliders className="w-4 h-4 text-emerald-400" />
+              <span>⚙️ System Voice</span>
+              <span className="text-[9px] font-normal text-slate-500">Browser Engine</span>
+            </button>
+          </div>
+
+          {/* Voice URI Dropdown if available */}
+          {availableVoices.length > 0 && (
+            <div>
+              <label className="text-[11px] font-medium text-slate-400 block mb-1">
+                Specific System Voice:
+              </label>
+              <select
+                value={selectedVoiceURI}
+                onChange={(e) => setSelectedVoiceURI(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-amber-500"
+              >
+                <option value="">Auto-Select Best Regional Voice</option>
+                {availableVoices.map((v, i) => (
+                  <option key={i} value={v.voiceURI}>
+                    {v.name} ({v.lang})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Speed & Pitch Slider */}
+          <div className="grid grid-cols-2 gap-3 pt-1 text-xs">
+            <div>
+              <div className="flex justify-between text-[11px] text-slate-400 mb-1">
+                <span>Speed: {voiceRate.toFixed(2)}x</span>
+              </div>
+              <input
+                type="range"
+                min="0.75"
+                max="1.25"
+                step="0.05"
+                value={voiceRate}
+                onChange={(e) => setVoiceRate(parseFloat(e.target.value))}
+                className="w-full accent-amber-500 bg-slate-800 rounded-lg h-1.5 cursor-pointer"
+              />
+            </div>
+
+            <div>
+              <div className="flex justify-between text-[11px] text-slate-400 mb-1">
+                <span>Pitch / Tone: {voicePitch.toFixed(2)}</span>
+              </div>
+              <input
+                type="range"
+                min="0.80"
+                max="1.30"
+                step="0.05"
+                value={voicePitch}
+                onChange={(e) => setVoicePitch(parseFloat(e.target.value))}
+                className="w-full accent-amber-500 bg-slate-800 rounded-lg h-1.5 cursor-pointer"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* SECTION 2: AI REASONING PROVIDER */}
         <div className="mb-5">
           <label className="text-xs font-bold text-slate-300 block mb-2">
-            Select Active AI Reasoning Provider
+            Active AI Reasoning Provider
           </label>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
             {/* Gemini Option */}
@@ -103,12 +282,12 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
             >
               <div className="flex items-center justify-between mb-1">
                 <span className="font-bold text-xs flex items-center gap-1.5 text-amber-400">
-                  <Sparkles className="w-3.5 h-3.5" /> Gemini 2.0
+                  <Sparkles className="w-3.5 h-3.5" /> Gemini 2.5
                 </span>
                 {provider === 'gemini' && <Check className="w-3.5 h-3.5 text-amber-400" />}
               </div>
               <p className="text-[10px] text-slate-400 leading-tight">
-                Deep Indic dialect reasoning (Kannada default)
+                Deep Indic dialect reasoning (Kannada & Multi-turn)
               </p>
             </button>
 
@@ -156,7 +335,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
           </div>
         </div>
 
-        {/* Key Configuration Form */}
+        {/* SECTION 3: KEY CONFIGURATION FORM */}
         <form onSubmit={handleSave} className="space-y-4">
           {/* 1. Gemini Key Field */}
           <div className={`p-4 rounded-2xl border transition-all ${provider === 'gemini' ? 'bg-slate-950 border-amber-500/40' : 'bg-slate-950/40 border-slate-800 opacity-80'}`}>
@@ -208,44 +387,15 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
             />
           </div>
 
-          {/* Status Explanation Callout */}
-          <div className="p-3.5 rounded-2xl bg-slate-950/90 border border-slate-800 flex items-start gap-3">
-            <Bot className="w-5 h-5 text-amber-400 mt-0.5 flex-shrink-0" />
-            <div className="text-xs text-slate-300">
-              <div className="font-bold text-slate-100 mb-0.5">
-                Execution Strategy:
-              </div>
-              {provider === 'gemini' && (
-                <span className="text-amber-300">
-                  {geminiInput.trim()
-                    ? 'Using live Google Gemini 2.0 Flash for real-time multilingual voice comprehension.'
-                    : 'Gemini key not entered: will automatically use the Built-in Contextual Engine without interruption.'}
-                </span>
-              )}
-              {provider === 'grok' && (
-                <span className="text-cyan-300">
-                  {grokInput.trim()
-                    ? 'Using live xAI Grok-2 for multi-agent reasoning and slot deduplication.'
-                    : 'Grok key not entered: will automatically use the Built-in Contextual Engine without interruption.'}
-                </span>
-              )}
-              {provider === 'local' && (
-                <span className="text-emerald-300">
-                  Using high-speed Built-in Contextual Neuro-Symbolic Agent Engine (no network latency or external keys).
-                </span>
-              )}
-            </div>
-          </div>
-
           {/* Action Buttons */}
           <div className="flex items-center justify-between gap-3 pt-2">
             {(geminiInput || grokInput) && (
               <button
                 type="button"
                 onClick={handleClearAll}
-                className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 text-xs font-bold transition-colors"
+                className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 text-xs font-bold transition-colors cursor-pointer"
               >
-                Clear All Keys
+                Clear Keys
               </button>
             )}
 
@@ -253,16 +403,16 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-colors"
+                className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs sm:text-sm flex items-center gap-1.5 shadow-lg shadow-amber-500/20 transition-all"
+                className="px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs sm:text-sm flex items-center gap-1.5 shadow-lg shadow-amber-500/20 transition-all cursor-pointer"
               >
                 {savedSuccess ? <Check className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}
-                {savedSuccess ? 'Saved!' : 'Save & Activate'}
+                {savedSuccess ? 'Saved & Locked!' : 'Save Voice & Key Settings'}
               </button>
             </div>
           </div>
