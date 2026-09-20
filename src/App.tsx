@@ -21,6 +21,8 @@ import { SkillGapAnalysisCard } from './components/SkillGapAnalysisCard';
 import { ProgramRecommendations } from './components/ProgramRecommendations';
 import { Roadmap90Days } from './components/Roadmap90Days';
 import { FieldAssistantMode } from './components/FieldAssistantMode';
+import { IvrHelplineMode } from './components/IvrHelplineMode';
+import { HackathonValidatorModal } from './components/HackathonValidatorModal';
 import { ImpactDashboard } from './components/ImpactDashboard';
 import { ApiKeyModal } from './components/ApiKeyModal';
 import { FinalOpportunityBanner } from './components/FinalOpportunityBanner';
@@ -38,7 +40,8 @@ export const App: React.FC = () => {
     return 'kn';
   });
 
-  const [activeMode, setActiveMode] = useState<'voice' | 'field' | 'dashboard'>('voice');
+  const [activeMode, setActiveMode] = useState<'voice' | 'field' | 'ivr' | 'dashboard'>('voice');
+  const [isValidatorOpen, setIsValidatorOpen] = useState<boolean>(false);
   const [conversationState, setConversationState] = useState<ConversationState>('LANDING');
   const [micState, setMicState] = useState<MicState>('IDLE');
   const [audioEnabled, setAudioEnabled] = useState<boolean>(true);
@@ -319,6 +322,7 @@ export const App: React.FC = () => {
         activeMode={activeMode}
         onSelectMode={setActiveMode}
         onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenValidator={() => setIsValidatorOpen(true)}
         hasApiKey={hasConfiguredKey}
         isListening={micState === 'LISTENING'}
         isSpeaking={micState === 'RESPONDING'}
@@ -326,7 +330,7 @@ export const App: React.FC = () => {
 
       {/* Main Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-6">
-        {/* VIEW 1: FIELD ASSISTANT MODE */}
+        {/* USE CASE 2: FIELD ASSISTANT MODE */}
         {activeMode === 'field' && (
           <FieldAssistantMode
             currentLanguage={currentLanguage}
@@ -334,12 +338,24 @@ export const App: React.FC = () => {
           />
         )}
 
-        {/* VIEW 2: IMPACT DASHBOARD MODE */}
+        {/* USE CASE 3: 1800-SAKSHAM IVR HELPLINE MODE */}
+        {activeMode === 'ivr' && (
+          <IvrHelplineMode
+            currentLanguage={currentLanguage}
+            onLanguageChange={handleLanguageChange}
+            onOpenProfile={() => {
+              setActiveMode('voice');
+              setRightPanelTab('passport');
+            }}
+          />
+        )}
+
+        {/* IMPACT & EVALUATION DASHBOARD */}
         {activeMode === 'dashboard' && (
           <ImpactDashboard currentLanguage={currentLanguage} />
         )}
 
-        {/* VIEW 3: CITIZEN VOICE MODE (CORE JOURNEY) */}
+        {/* USE CASE 1: CITIZEN VOICE DISCOVERY STUDIO (CORE JOURNEY) */}
         {activeMode === 'voice' && (
           <>
             {/* Hero Landing Section (When at initial state) */}
@@ -604,6 +620,12 @@ export const App: React.FC = () => {
         geminiKey={apiKeys.gemini}
         grokKey={apiKeys.grok}
         onSaveConfig={handleSaveConfig}
+      />
+
+      {/* 100% Hackathon Solution & Evaluation Matrix Modal */}
+      <HackathonValidatorModal
+        isOpen={isValidatorOpen}
+        onClose={() => setIsValidatorOpen(false)}
       />
 
       {/* Footer */}

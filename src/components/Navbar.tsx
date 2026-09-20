@@ -1,5 +1,5 @@
 import React from 'react';
-import { Mic, Globe, Users, BarChart3, Sparkles, Settings } from 'lucide-react';
+import { Mic, Globe, Users, BarChart3, Sparkles, Settings, PhoneCall, Award } from 'lucide-react';
 import type { SupportedLanguage } from '../types';
 import { SUPPORTED_LANGUAGES } from '../data/languages';
 import { I18N_DATA } from '../data/i18n';
@@ -7,9 +7,10 @@ import { I18N_DATA } from '../data/i18n';
 interface NavbarProps {
   currentLanguage: SupportedLanguage;
   onLanguageChange: (lang: SupportedLanguage) => void;
-  activeMode: 'voice' | 'field' | 'dashboard';
-  onSelectMode: (mode: 'voice' | 'field' | 'dashboard') => void;
+  activeMode: 'voice' | 'field' | 'ivr' | 'dashboard';
+  onSelectMode: (mode: 'voice' | 'field' | 'ivr' | 'dashboard') => void;
   onOpenSettings: () => void;
+  onOpenValidator: () => void;
   hasApiKey: boolean;
   isListening: boolean;
   isSpeaking: boolean;
@@ -21,6 +22,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   activeMode,
   onSelectMode,
   onOpenSettings,
+  onOpenValidator,
   hasApiKey,
   isListening,
   isSpeaking
@@ -59,51 +61,82 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Navigation Mode Tabs & Controls */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* Mode Switcher */}
+          {/* 3 Official Use Case Modes + Impact Dashboard */}
           <div className="flex items-center p-0.5 rounded-xl bg-slate-900 border border-slate-800 text-xs font-semibold">
+            {/* Use Case 1: Voice Discovery */}
             <button
               onClick={() => onSelectMode('voice')}
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg transition-all ${
+              className={`flex items-center space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg transition-all ${
                 activeMode === 'voice'
                   ? 'bg-emerald-600 text-white shadow-xs'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
+              title="Use Case 1: Rural Worker Voice Discovery"
             >
               <Mic className="w-3.5 h-3.5" />
-              <span>{t.modeVoice}</span>
+              <span>Voice Studio</span>
             </button>
 
+            {/* Use Case 2: Field NGO / VLE */}
             <button
               onClick={() => onSelectMode('field')}
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg transition-all ${
+              className={`flex items-center space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg transition-all ${
                 activeMode === 'field'
                   ? 'bg-emerald-600 text-white shadow-xs'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
+              title="Use Case 2: Field NGO / CSC VLE Assistant"
             >
               <Users className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">{t.modeFieldAssistant}</span>
+              <span className="hidden sm:inline">Field NGO</span>
               <span className="sm:hidden">NGO</span>
             </button>
 
+            {/* Use Case 3: IVR Helpline */}
+            <button
+              onClick={() => onSelectMode('ivr')}
+              className={`flex items-center space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg transition-all ${
+                activeMode === 'ivr'
+                  ? 'bg-purple-600 text-white shadow-xs'
+                  : 'text-slate-400 hover:text-purple-300'
+              }`}
+              title="Use Case 3: 1800-SAKSHAM IVR Toll-Free Helpline"
+            >
+              <PhoneCall className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">1800-IVR</span>
+              <span className="sm:hidden">IVR</span>
+            </button>
+
+            {/* Impact Dashboard */}
             <button
               onClick={() => onSelectMode('dashboard')}
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg transition-all ${
+              className={`flex items-center space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg transition-all ${
                 activeMode === 'dashboard'
                   ? 'bg-emerald-600 text-white shadow-xs'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
+              title="Impact Metrics & Analytics"
             >
               <BarChart3 className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">{t.modeImpactDashboard}</span>
-              <span className="sm:hidden">Impact</span>
+              <span className="hidden sm:inline">Impact</span>
             </button>
           </div>
+
+          {/* Hackathon 100% Evaluation Matrix Button */}
+          <button
+            onClick={onOpenValidator}
+            className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all bg-emerald-950/60 text-emerald-300 border border-emerald-500/50 hover:bg-emerald-900/50 shadow-sm"
+            title="View 100% Solution & Evaluation Compliance Matrix"
+          >
+            <Award className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="hidden md:inline">100% Solution Matrix</span>
+            <span className="md:hidden">Matrix</span>
+          </button>
 
           {/* AI Settings (API Key) Button */}
           <button
             onClick={onOpenSettings}
-            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
+            className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
               hasApiKey
                 ? 'bg-amber-500/15 text-amber-300 border-amber-500/40 hover:bg-amber-500/25'
                 : 'bg-slate-900 text-slate-300 border-slate-700/80 hover:bg-slate-800'
@@ -125,8 +158,8 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
 
           {/* Language Selector Dropdown */}
-          <div className="relative flex items-center bg-slate-900 border border-slate-700/80 rounded-lg px-2.5 py-1.5 shadow-inner">
-            <Globe className="w-3.5 h-3.5 text-emerald-400 mr-1.5 shrink-0" />
+          <div className="relative flex items-center bg-slate-900 border border-slate-700/80 rounded-lg px-2 py-1.5 shadow-inner">
+            <Globe className="w-3.5 h-3.5 text-emerald-400 mr-1 shrink-0" />
             <select
               value={currentLanguage}
               onChange={(e) => onLanguageChange(e.target.value as SupportedLanguage)}
@@ -135,7 +168,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               {SUPPORTED_LANGUAGES.map((lang) => (
                 <option key={lang.code} value={lang.code} className="bg-slate-900 text-slate-100">
-                  {lang.flag} {lang.nativeName} {lang.isPrimaryDemo ? '(Primary)' : ''}
+                  {lang.flag} {lang.nativeName}
                 </option>
               ))}
             </select>
