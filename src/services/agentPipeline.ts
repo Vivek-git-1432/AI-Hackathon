@@ -85,6 +85,56 @@ export function parseToolTokens(toolsInput: string | string[]): string[] {
   return result.length > 0 ? result : [text.trim()];
 }
 
+export function sanitizeOfficialPortalUrl(url?: string, programTitle?: string): string {
+  if (!url || typeof url !== 'string') return 'https://www.skillindiadigital.gov.in';
+  const u = url.toLowerCase().trim();
+  const t = (programTitle || '').toLowerCase();
+  
+  if (u.includes('futureskills') || t.includes('futureskills') || t.includes('artificial intelligence') || t.includes('software') || t.includes('ai & machine')) {
+    return 'https://futureskillsprime.in';
+  }
+  if (u.includes('socialjustice') || t.includes('ambedkar') || t.includes('civil services') || t.includes('upsc') || t.includes('ias')) {
+    return 'https://socialjustice.gov.in';
+  }
+  if (u.includes('ncs.gov.in') || t.includes('national career service')) {
+    return 'https://www.ncs.gov.in';
+  }
+  if (u.includes('igotkarmayogi') || t.includes('karmayogi')) {
+    return 'https://igotkarmayogi.gov.in';
+  }
+  if (u.includes('pmvishwakarma') || t.includes('vishwakarma') || t.includes('artisan') || t.includes('darzi')) {
+    return 'https://pmvishwakarma.gov.in';
+  }
+  if (u.includes('pmsuryaghar') || t.includes('surya') || t.includes('solar') || t.includes('green job')) {
+    return 'https://pmsuryaghar.gov.in';
+  }
+  if (u.includes('tourism') || t.includes('hunar se rozgar') || t.includes('hsrt') || t.includes('hospitality')) {
+    return 'https://tourism.gov.in';
+  }
+  if (u.includes('samarth') || t.includes('samarth') || t.includes('textile')) {
+    return 'https://samarth-textiles.gov.in';
+  }
+  if (u.includes('nielit') || t.includes('nielit')) {
+    return 'https://www.nielit.gov.in';
+  }
+  if (u.includes('apprenticeship') || t.includes('naps')) {
+    return 'https://www.apprenticeshipindia.gov.in';
+  }
+  if (u.includes('nhm') || t.includes('health') || t.includes('paramedic')) {
+    return 'https://nhm.gov.in';
+  }
+  if (u.includes('abdm') || t.includes('ayushman')) {
+    return 'https://abdm.gov.in';
+  }
+  if (u.includes('pmkvy') || t.includes('pmkvy') || t.includes('skill india') || t.includes('nsdc')) {
+    return 'https://www.pmkvyofficial.org';
+  }
+  if (u.startsWith('http://') || u.startsWith('https://')) {
+    return url;
+  }
+  return 'https://www.skillindiadigital.gov.in';
+}
+
 export class AgentPipelineService {
   private activeProvider: AIProvider = 'gemini';
   private geminiKey: string = '';
@@ -444,25 +494,41 @@ export class AgentPipelineService {
 You are SAKSHAM VOICE (ಸಕ್ಷಮ್ ವಾಯ್ಸ್), an intelligent conversational AI agent for livelihood skill mapping and government skilling schemes across ALL Indian sectors (Civil Services, Engineering, Event Management, Healthcare, Tech, Power, Retail, Agriculture, Crafts, etc.).
 Target Language: "${lang}". Respond strictly in language "${lang}".
 
-CRITICAL REASONING & EXTRACTION RULES:
+CRITICAL MULTI-TURN CONVERSATIONAL PROBING RULES:
 1. GREETINGS & INTRODUCTIONS:
-   - If citizen says "Good morning", "Hello", "Hi", "Namaskara", "Namaste", greet them back politely, introduce yourself as Saksham Voice, and ask what kind of trade or work they do.
+   - If citizen says "Good morning", "Hello", "Hi", "Namaskara", "Namaste", greet them back politely, introduce yourself as Saksham Voice, and ask what trade or work they currently do.
    - NEVER assign greetings as an occupation!
 
 2. IDENTITY QUESTIONS:
    - If citizen asks "What is your name?" or "Who are you?": Explain you are Saksham Voice and ask what work they do.
 
 3. ACCURATE OCCUPATION & ASPIRATION EXTRACTION:
-   - Extract the EXACT trade or background mentioned by the user (e.g. "Engineering Student & Event Management / Civil Services Aspirant", "Software Engineer", "Event Coordinator & Catering Assistant", "Civil Services Aspirant (IAS/IPS)", "Electrician", "Tailor", "Farmer", "Nurse", etc.).
-   - If user talks about Civil Services (IAS, IPS, Police Officer, UPSC, Government Exams), CAPTURE Civil Services as aspiration/goal!
-   - If user talks about Event Management / Catering / Companies, CAPTURE that as their work/experience!
-   - If user did not mention any job/work, set "extractedOccupation": null.
+   - Extract the EXACT trade or background mentioned by the user (e.g. "Software Engineer", "Engineering Student & Event Management", "Civil Services Aspirant", "Electrician", "Tailor", "Farmer", "Nurse", etc.).
+   - Extract numeric experience years if mentioned.
+   - Extract tools/equipment/languages only if explicitly mentioned in the user's conversation.
+   - Extract future career aspiration only if explicitly mentioned in the user's conversation.
 
-4. MULTI-SLOT EXTRACTION:
-   - Extract all available slots: extractedOccupation, extractedExperienceYears, extractedTools, extractedAspiration.
+4. STRICT MULTI-TURN PROTOCOL (DO NOT RUSH OR SKIP SLOTS):
+   You must systematically collect all 4 essential profile slots before finalizing:
+   - Slot 1: Primary Occupation
+   - Slot 2: Experience Duration (Years)
+   - Slot 3: Tools, Technologies, Equipment, or Frameworks used daily
+   - Slot 4: Future Career Aspirations & Skilling Goals
 
-5. READ-BACK SYNTHESIS:
-   - When all 4 slots are known: Set "isReadyForReadback": true and formulate a clear spoken read-back asking for confirmation (YES/NO).
+   RULES FOR PROBING:
+   - If user says ONLY their job and experience (e.g. "I am a software engineer and I have 10 years of experience"):
+     * extractedOccupation = "Software Engineer"
+     * extractedExperienceYears = 10
+     * extractedTools = null (User has NOT specified their tools/frameworks yet)
+     * extractedAspiration = null (User has NOT specified career aspirations yet)
+     * isReadyForReadback = false
+     * spokenText: Ask a natural follow-up question probing what specific programming languages, frameworks, cloud systems, or developer tools they primarily work with daily!
+   - If tools are known but aspiration is missing:
+     * isReadyForReadback = false
+     * spokenText: Ask about their future career goals, certifications, or leadership aspirations.
+   - ONLY when ALL 4 SLOTS (Occupation, Experience, Tools, Aspiration) ARE KNOWN:
+     * Set "isReadyForReadback": true
+     * spokenText: Formulate a clear spoken read-back summarizing all 4 points and asking for explicit confirmation (YES/NO).
 
 Respond in strict JSON with schema:
 {
@@ -520,13 +586,14 @@ Current Known Slots: ${JSON.stringify(this.slots)}
           this.slots.aspiration
         );
 
-        const isReady = parsed.isReadyForReadback || isAllSlotsFilled;
+        // Strict: Only trigger read-back if ALL 4 slots are filled!
+        const isReady = isAllSlotsFilled && Boolean(parsed.isReadyForReadback);
 
         const reasoningStep: AgentReasoningStep = {
           step: `Live Gemini (${model}) AI Reasoning`,
           observation: parsed.reasoningObservation || `Analyzed intent: ${parsed.intent || 'CONVERSATION'}`,
-          deduplicationCheck: `Slots: Occupation=${this.slots.occupation || 'none'}, Exp=${this.slots.experienceYears ?? 'none'}, Tools=${this.slots.toolsEquipment || 'none'}, Asp=${this.slots.aspiration || 'none'}`,
-          decision: parsed.reasoningDecision || (isReady ? 'Formulate Spoken Readback' : 'Contextual Follow-up'),
+          deduplicationCheck: `Slots: Occupation=${this.slots.occupation || 'missing'}, Exp=${this.slots.experienceYears ?? 'missing'}, Tools=${this.slots.toolsEquipment || 'missing'}, Asp=${this.slots.aspiration || 'missing'}`,
+          decision: parsed.reasoningDecision || (isReady ? 'Formulate Spoken Readback' : 'Multi-Turn Contextual Probing'),
           confidence: parsed.confidence || 96
         };
 
@@ -545,7 +612,7 @@ Current Known Slots: ${JSON.stringify(this.slots)}
           spokenText: parsed.spokenText,
           englishTranslation: parsed.englishTranslation,
           nextState: this.determineNextState(),
-          activeNodeId: 'understanding_agent',
+          activeNodeId: this.slots.toolsEquipment === null || this.slots.experienceYears === null ? 'profile_agent' : 'skill_mapping_agent',
           isReadbackPrompt: false,
           reasoningStep
         };
@@ -1189,6 +1256,10 @@ Respond with strict JSON matching this schema:
                 parsed.id = parsed.id || `profile-${Date.now()}`;
                 parsed.isConfirmed = true;
                 parsed.confirmedAt = new Date().toISOString();
+                parsed.matchedPrograms = parsed.matchedPrograms.map((p: any) => ({
+                  ...p,
+                  officialPortalUrl: sanitizeOfficialPortalUrl(p.officialPortalUrl, p.title)
+                }));
                 return parsed as LivelihoodProfile;
               }
             }
@@ -1237,6 +1308,10 @@ Include: id, citizenName, occupation, experienceYears, education, location, curr
             parsed.id = parsed.id || `profile-${Date.now()}`;
             parsed.isConfirmed = true;
             parsed.confirmedAt = new Date().toISOString();
+            parsed.matchedPrograms = parsed.matchedPrograms.map((p: any) => ({
+              ...p,
+              officialPortalUrl: sanitizeOfficialPortalUrl(p.officialPortalUrl, p.title)
+            }));
             return parsed as LivelihoodProfile;
           }
         }

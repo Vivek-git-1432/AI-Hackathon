@@ -8,7 +8,13 @@ import {
   DollarSign, 
   Gift, 
   Landmark, 
-  X
+  FileText,
+  PhoneCall,
+  X,
+  Check,
+  Building2,
+  Calendar,
+  Globe
 } from 'lucide-react';
 import type { MatchedProgram, SupportedLanguage } from '../types';
 import { I18N_DATA } from '../data/i18n';
@@ -23,7 +29,21 @@ export const ProgramRecommendations: React.FC<ProgramRecommendationsProps> = ({
   currentLanguage
 }) => {
   const [selectedWhyProgram, setSelectedWhyProgram] = useState<MatchedProgram | null>(null);
+  const [selectedDossierProgram, setSelectedDossierProgram] = useState<MatchedProgram | null>(null);
   const t = I18N_DATA[currentLanguage] || I18N_DATA.kn;
+
+  const handleOpenOfficialPortal = (e: React.MouseEvent, url: string) => {
+    e.stopPropagation();
+    if (!url) return;
+    try {
+      const opened = window.open(url, '_blank', 'noopener,noreferrer');
+      if (!opened || opened.closed || typeof opened.closed === 'undefined') {
+        window.location.href = url;
+      }
+    } catch {
+      window.open(url, '_blank');
+    }
+  };
 
   return (
     <div className="w-full space-y-4">
@@ -87,8 +107,9 @@ export const ProgramRecommendations: React.FC<ProgramRecommendationsProps> = ({
                 <h3 className="text-sm sm:text-base font-bold text-slate-100 leading-snug">
                   {program.title}
                 </h3>
-                <p className="text-xs text-slate-400">
-                  {program.provider}
+                <p className="text-xs text-slate-400 flex items-center gap-1.5">
+                  <Building2 className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+                  <span>{program.provider}</span>
                 </p>
               </div>
 
@@ -151,32 +172,251 @@ export const ProgramRecommendations: React.FC<ProgramRecommendationsProps> = ({
 
               {/* Action Buttons */}
               <div className="space-y-2 pt-2.5 border-t border-slate-800">
-                <button
-                  onClick={() => setSelectedWhyProgram(program)}
-                  className="w-full py-2 px-3 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
-                >
-                  <HelpCircle className="w-3.5 h-3.5" />
-                  {t.whyThisRecommendationBtn}
-                </button>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setSelectedWhyProgram(program)}
+                    className="py-2 px-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-semibold flex items-center justify-center gap-1 transition-colors"
+                    title="View 5-Factor AI Matching Rationale"
+                  >
+                    <HelpCircle className="w-3.5 h-3.5" />
+                    <span>Why Matched?</span>
+                  </button>
+
+                  <button
+                    onClick={() => setSelectedDossierProgram(program)}
+                    className="py-2 px-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center justify-center gap-1 transition-colors"
+                    title="View Scheme Application Dossier"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-blue-400" />
+                    <span>Scheme Dossier</span>
+                  </button>
+                </div>
 
                 <a
                   href={program.officialPortalUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={`w-full py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                  onClick={(e) => handleOpenOfficialPortal(e, program.officialPortalUrl)}
+                  className={`w-full py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer ${
                     isBest
-                      ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-sm'
-                      : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
+                      ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 font-black shadow-amber-500/20'
+                      : 'bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-700'
                   }`}
                 >
-                  {t.viewProgramBtn}
-                  <ExternalLink className="w-3 h-3" />
+                  <Globe className="w-3.5 h-3.5" />
+                  <span>{t.viewProgramBtn} (Open Official Portal)</span>
+                  <ExternalLink className="w-3.5 h-3.5 ml-0.5" />
                 </a>
               </div>
             </div>
           );
         })}
       </div>
+
+      {/* SCHEME APPLICATION & OFFICIAL PORTAL DOSSIER MODAL */}
+      {selectedDossierProgram && (
+        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+          <div className="bg-slate-900 border border-amber-500/50 rounded-2xl max-w-2xl w-full shadow-2xl animate-in zoom-in-95 duration-200 relative my-8 overflow-hidden">
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-slate-900 via-amber-950/30 to-slate-900 p-5 border-b border-slate-800 flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/40 flex-shrink-0 mt-0.5">
+                  <Landmark className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-slate-950 uppercase tracking-wider">
+                      {selectedDossierProgram.rankBadge}
+                    </span>
+                    <span className="text-xs font-mono font-bold text-emerald-400">
+                      {selectedDossierProgram.matchPercentage}% AI Fit
+                    </span>
+                  </div>
+                  <h3 className="text-base sm:text-lg font-bold text-slate-100 leading-snug">
+                    {selectedDossierProgram.title}
+                  </h3>
+                  <p className="text-xs text-slate-400 flex items-center gap-1 mt-1">
+                    <Building2 className="w-3.5 h-3.5 text-amber-400" />
+                    {selectedDossierProgram.provider}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setSelectedDossierProgram(null)}
+                className="p-1.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-100 transition-colors flex-shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-5 sm:p-6 space-y-5 max-h-[70vh] overflow-y-auto">
+              {/* Scheme Key Benefits Summary */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                    <DollarSign className="w-3 h-3 text-emerald-400" /> Monthly Stipend
+                  </span>
+                  <p className="text-xs font-bold text-emerald-300">
+                    {selectedDossierProgram.stipend || '100% Free Government Grant'}
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                    <Gift className="w-3 h-3 text-amber-400" /> Toolkit / Equipment
+                  </span>
+                  <p className="text-xs font-bold text-amber-300">
+                    {selectedDossierProgram.toolkitGrant || 'Free Toolset & Digital Card'}
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                    <Calendar className="w-3 h-3 text-blue-400" /> Duration & Mode
+                  </span>
+                  <p className="text-xs font-bold text-blue-300">
+                    {selectedDossierProgram.duration}
+                  </p>
+                </div>
+              </div>
+
+              {/* Eligibility & Overview */}
+              <div className="p-4 rounded-xl bg-slate-800/40 border border-slate-700/60 space-y-2">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5" /> Eligibility & Criteria
+                </h4>
+                <p className="text-xs text-slate-200 leading-relaxed">
+                  {selectedDossierProgram.eligibility}
+                </p>
+              </div>
+
+              {/* 4-Step Application & Enrollment Process */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                  <FileText className="w-3.5 h-3.5 text-amber-400" /> Step-by-Step Enrollment Guide
+                </h4>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                  <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-start gap-2.5">
+                    <span className="w-5 h-5 rounded-full bg-amber-500 text-slate-950 font-bold flex items-center justify-center text-[10px] flex-shrink-0 mt-0.5">
+                      1
+                    </span>
+                    <div>
+                      <p className="font-bold text-slate-200">Digital Voice Intake</p>
+                      <p className="text-[11px] text-slate-400">Captured via SAKSHAM VOICE with NSQF skill mapping.</p>
+                    </div>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-start gap-2.5">
+                    <span className="w-5 h-5 rounded-full bg-amber-500 text-slate-950 font-bold flex items-center justify-center text-[10px] flex-shrink-0 mt-0.5">
+                      2
+                    </span>
+                    <div>
+                      <p className="font-bold text-slate-200">Aadhaar e-KYC Verification</p>
+                      <p className="text-[11px] text-slate-400">Authenticate identity on the official government portal.</p>
+                    </div>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-start gap-2.5">
+                    <span className="w-5 h-5 rounded-full bg-amber-500 text-slate-950 font-bold flex items-center justify-center text-[10px] flex-shrink-0 mt-0.5">
+                      3
+                    </span>
+                    <div>
+                      <p className="font-bold text-slate-200">Center / Batch Selection</p>
+                      <p className="text-[11px] text-slate-400">Select local district training center or online hybrid cohort.</p>
+                    </div>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-start gap-2.5">
+                    <span className="w-5 h-5 rounded-full bg-amber-500 text-slate-950 font-bold flex items-center justify-center text-[10px] flex-shrink-0 mt-0.5">
+                      4
+                    </span>
+                    <div>
+                      <p className="font-bold text-slate-200">DBT Grant & Toolset</p>
+                      <p className="text-[11px] text-slate-400">Receive government stipend and toolkit voucher directly in bank.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Mandatory Documents Checklist */}
+              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  Mandatory Verification Checklist:
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-300">
+                  <div className="flex items-center gap-2">
+                    <Check className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                    <span>Aadhaar Card (Linked with Mobile)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Check className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                    <span>Bank Passbook / Direct DBT Account</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Check className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                    <span>Education / Experience Self-Declaration</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Check className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                    <span>Kaushal Passport Skill Card</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* National Toll-Free Support Helpline */}
+              <div className="p-3.5 rounded-xl bg-emerald-950/30 border border-emerald-500/30 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-lg bg-emerald-500/20 text-emerald-400">
+                    <PhoneCall className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 block">
+                      National Citizen Skilling Helpline
+                    </span>
+                    <p className="text-xs font-mono font-bold text-slate-100">
+                      1800-SAKSHAM (1800-725-7426) / 14420
+                    </p>
+                  </div>
+                </div>
+                <span className="text-[10px] font-medium bg-emerald-500/10 text-emerald-300 px-2 py-1 rounded-md border border-emerald-500/20">
+                  24x7 Toll-Free
+                </span>
+              </div>
+            </div>
+
+            {/* Modal Footer with Direct Launch */}
+            <div className="p-4 sm:p-5 bg-slate-950 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="text-xs text-slate-400">
+                Official Government Portal: <span className="text-slate-200 font-mono text-[11px]">{selectedDossierProgram.officialPortalUrl}</span>
+              </div>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <button
+                  onClick={() => setSelectedDossierProgram(null)}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors w-1/2 sm:w-auto"
+                >
+                  Close Dossier
+                </button>
+
+                <a
+                  href={selectedDossierProgram.officialPortalUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => handleOpenOfficialPortal(e, selectedDossierProgram.officialPortalUrl)}
+                  className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs flex items-center justify-center gap-1.5 shadow-md shadow-amber-500/20 transition-all w-1/2 sm:w-auto cursor-pointer"
+                >
+                  <Globe className="w-3.5 h-3.5" />
+                  <span>Launch Portal Now</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* "WHY THIS RECOMMENDATION?" Explainability Modal */}
       {selectedWhyProgram && (
