@@ -228,6 +228,8 @@ export class VoiceService {
       clearTimeout(this.silenceTimer);
       this.silenceTimer = null;
     }
+    this.accumulatedText = '';
+    this.interimText = '';
     if (this.recognition) {
       try {
         this.recognition.onresult = null;

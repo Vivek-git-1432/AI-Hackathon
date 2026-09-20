@@ -52,6 +52,7 @@ export const App: React.FC = () => {
   const [micState, setMicState] = useState<MicState>('IDLE');
   const [audioEnabled, setAudioEnabled] = useState<boolean>(true);
   const [autoListen, setAutoListen] = useState<boolean>(true); // Continuous hands-free loop
+  const [isMicMuted, setIsMicMuted] = useState<boolean>(false); // Manual mute / pause toggle
   const [transcriptInterim, setTranscriptInterim] = useState<string>('');
   
   // Right panel view tab when chatting
@@ -82,6 +83,17 @@ export const App: React.FC = () => {
 
   const autoListenRef = useRef(autoListen);
   autoListenRef.current = autoListen;
+
+  const isMicMutedRef = useRef(isMicMuted);
+  isMicMutedRef.current = isMicMuted;
+
+  const autoListenTimerRef = useRef<any>(null);
+  const clearAutoListenTimer = () => {
+    if (autoListenTimerRef.current) {
+      clearTimeout(autoListenTimerRef.current);
+      autoListenTimerRef.current = null;
+    }
+  };
 
   const conversationStateRef = useRef(conversationState);
   conversationStateRef.current = conversationState;
@@ -141,6 +153,7 @@ export const App: React.FC = () => {
   };
 
   const startListeningInternal = useCallback(() => {
+    clearAutoListenTimer();
     voiceService.stopSpeaking();
     setMicState('LISTENING');
 
@@ -171,6 +184,8 @@ export const App: React.FC = () => {
   }, []);
 
   const resetConversation = (lang: SupportedLanguage = currentLanguageRef.current, nameOverride?: string) => {
+    clearAutoListenTimer();
+    setIsMicMuted(false);
     voiceService.stopListening();
     voiceService.stopSpeaking();
     if (nameOverride && nameOverride.trim()) {
@@ -195,10 +210,13 @@ export const App: React.FC = () => {
         () => setMicState('RESPONDING'),
         () => {
           setMicState('IDLE');
-          // Hands-free continuous loop: start listening after greeting finishes
-          if (autoListenRef.current && conversationStateRef.current !== 'RESULTS_VIEW') {
-            setTimeout(() => {
-              startListeningInternal();
+          // Hands-free continuous loop: start listening after greeting finishes if not muted
+          clearAutoListenTimer();
+          if (autoListenRef.current && !isMicMutedRef.current && conversationStateRef.current !== 'RESULTS_VIEW') {
+            autoListenTimerRef.current = setTimeout(() => {
+              if (!isMicMutedRef.current) {
+                startListeningInternal();
+              }
             }, 500);
           }
         }
@@ -215,21 +233,32 @@ export const App: React.FC = () => {
   };
 
   const handleToggleMic = () => {
+    clearAutoListenTimer();
     if (micState === 'LISTENING') {
-      const interim = transcriptInterim;
+      // User explicitly clicked to Turn OFF / Mute the mic
       voiceService.stopListening();
       setMicState('IDLE');
       setTranscriptInterim('');
-      if (interim && interim.trim().length > 0) {
-        handleProcessUserInput(interim.trim());
-      }
+      setIsMicMuted(true);
+    } else if (micState === 'RESPONDING') {
+      // User clicked while AI is speaking: interrupt and set to IDLE
+      voiceService.stopSpeaking();
+      voiceService.stopListening();
+      setMicState('IDLE');
+      setTranscriptInterim('');
+      setIsMicMuted(true);
     } else {
+      // User explicitly clicked to Turn ON the mic
+      setIsMicMuted(false);
       startListeningInternal();
     }
   };
 
   const handleProcessUserInput = async (userInput: string) => {
     if (!userInput.trim()) return;
+
+    clearAutoListenTimer();
+    setIsMicMuted(false);
 
     // Immediately stop mic and audio to prevent feedback loops
     voiceService.stopListening();
@@ -288,9 +317,12 @@ export const App: React.FC = () => {
           () => setMicState('RESPONDING'),
           () => {
             setMicState('IDLE');
-            if (autoListenRef.current) {
-              setTimeout(() => {
-                startListeningInternal();
+            clearAutoListenTimer();
+            if (autoListenRef.current && !isMicMutedRef.current) {
+              autoListenTimerRef.current = setTimeout(() => {
+                if (!isMicMutedRef.current) {
+                  startListeningInternal();
+                }
               }, 600);
             }
           }
@@ -363,13 +395,17 @@ export const App: React.FC = () => {
         () => setMicState('RESPONDING'),
         () => {
           setMicState('IDLE');
-          // If auto-listen is enabled and we still need user input, trigger mic automatically with safe delay!
+          // If auto-listen is enabled and user hasn't muted, trigger mic automatically
+          clearAutoListenTimer();
           if (
             autoListenRef.current && 
+            !isMicMutedRef.current &&
             res.nextState !== 'RESULTS_VIEW'
           ) {
-            setTimeout(() => {
-              startListeningInternal();
+            autoListenTimerRef.current = setTimeout(() => {
+              if (!isMicMutedRef.current) {
+                startListeningInternal();
+              }
             }, 600);
           }
         }
@@ -556,6 +592,8 @@ export const App: React.FC = () => {
               <HeroLanding
                 currentLanguage={currentLanguage}
                 onStartVoice={() => {
+                  clearAutoListenTimer();
+                  setIsMicMuted(false);
                   setConversationState('INTERVIEW_NAME_LOCATION');
                   const greetingText = history[0]?.text || agentPipeline.getInitialGreeting(currentLanguageRef.current).text;
                   if (audioEnabled) {
@@ -565,9 +603,12 @@ export const App: React.FC = () => {
                       () => setMicState('RESPONDING'),
                       () => {
                         setMicState('IDLE');
-                        if (autoListenRef.current) {
-                          setTimeout(() => {
-                            startListeningInternal();
+                        clearAutoListenTimer();
+                        if (autoListenRef.current && !isMicMutedRef.current) {
+                          autoListenTimerRef.current = setTimeout(() => {
+                            if (!isMicMutedRef.current) {
+                              startListeningInternal();
+                            }
                           }, 500);
                         }
                       }
@@ -618,10 +659,17 @@ export const App: React.FC = () => {
                   transcriptInterim={transcriptInterim}
                   audioEnabled={audioEnabled}
                   autoListen={autoListen}
+                  isMicMuted={isMicMuted}
                   history={history}
                   onToggleMic={handleToggleMic}
-                  onSendMessage={handleProcessUserInput}
-                  onUploadDocument={handleUploadDocument}
+                  onSendMessage={(text) => {
+                    setIsMicMuted(false);
+                    handleProcessUserInput(text);
+                  }}
+                  onUploadDocument={(file) => {
+                    setIsMicMuted(false);
+                    handleUploadDocument(file);
+                  }}
                   onToggleAudio={() => setAudioEnabled(!audioEnabled)}
                   onToggleAutoListen={() => setAutoListen(!autoListen)}
                   onReplayAudio={(text) =>
@@ -632,7 +680,10 @@ export const App: React.FC = () => {
                       () => setMicState('IDLE')
                     )
                   }
-                  onResetSession={() => resetConversation(currentLanguage)}
+                  onResetSession={() => {
+                    setIsMicMuted(false);
+                    resetConversation(currentLanguage);
+                  }}
                 />
               </div>
 

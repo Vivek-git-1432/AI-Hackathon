@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { 
   Mic, 
+  MicOff,
   Volume2, 
   VolumeX, 
   Send, 
@@ -21,6 +22,7 @@ interface VoiceConversationHubProps {
   transcriptInterim: string;
   audioEnabled: boolean;
   autoListen: boolean;
+  isMicMuted?: boolean;
   history: DialogueTurn[];
   onToggleMic: () => void;
   onSendMessage: (text: string) => void;
@@ -39,6 +41,7 @@ export const VoiceConversationHub: React.FC<VoiceConversationHubProps> = ({
   transcriptInterim,
   audioEnabled,
   autoListen,
+  isMicMuted = false,
   history: _history,
   onToggleMic,
   onSendMessage,
@@ -70,13 +73,13 @@ export const VoiceConversationHub: React.FC<VoiceConversationHubProps> = ({
   const getMicStatusText = () => {
     switch (micState) {
       case 'LISTENING':
-        return t.micListening;
+        return t.micListening || 'Listening...';
       case 'PROCESSING':
-        return t.micProcessing;
+        return t.micProcessing || 'Analyzing...';
       case 'RESPONDING':
-        return t.micResponding;
+        return t.micResponding || 'Speaking...';
       default:
-        return t.micIdle;
+        return isMicMuted ? 'Mic Off / Paused' : (t.micIdle || 'Ready to Speak');
     }
   };
 
@@ -90,15 +93,6 @@ export const VoiceConversationHub: React.FC<VoiceConversationHubProps> = ({
     { label: '🧵 Master Tailor', text: 'I have 6 years tailoring experience using motorized sewing machines and want to learn CAD pattern design.' },
     { label: '🔄 Start from the beginning', text: 'Start from the beginning' }
   ];
-
-  const handleMicClick = () => {
-    if (isMicActive) {
-      // If already active and user clicks again, finish and commit what they said
-      voiceService.finishSpeakingNow();
-    } else {
-      onToggleMic();
-    }
-  };
 
   return (
     <div className="w-full h-full min-h-[480px] glass-bento rounded-2xl p-5 sm:p-6 shadow-xl relative overflow-hidden flex flex-col justify-between">
@@ -117,9 +111,15 @@ export const VoiceConversationHub: React.FC<VoiceConversationHubProps> = ({
               ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50 shadow-sm animate-pulse' 
               : isSpeaking
               ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50'
+              : isMicMuted
+              ? 'bg-rose-950/40 text-rose-300 border border-rose-800/60'
               : 'bg-slate-800/90 text-slate-300 border border-slate-700/80'
           }`}>
-            <Radio className="w-3 h-3" />
+            {isMicMuted && !isMicActive && !isSpeaking ? (
+              <MicOff className="w-3 h-3 text-rose-400" />
+            ) : (
+              <Radio className="w-3 h-3" />
+            )}
             {getMicStatusText()}
           </span>
 
@@ -176,19 +176,48 @@ export const VoiceConversationHub: React.FC<VoiceConversationHubProps> = ({
 
         {/* Main Microphone Action Sphere */}
         <button
-          onClick={handleMicClick}
-          aria-label={isMicActive ? 'Done speaking' : 'Start speaking'}
+          onClick={onToggleMic}
+          aria-label={
+            isMicActive
+              ? 'Click to turn off microphone'
+              : isSpeaking
+              ? 'Click to pause speaking'
+              : isMicMuted
+              ? 'Click to turn on microphone'
+              : 'Click to start speaking'
+          }
+          title={
+            isMicActive
+              ? 'Microphone is ON — Click to Turn Off / Mute'
+              : isSpeaking
+              ? 'AI is Speaking — Click to Interrupt'
+              : isMicMuted
+              ? 'Microphone is OFF — Click to Turn On'
+              : 'Click to Speak'
+          }
           className={`relative w-24 h-24 sm:w-28 sm:h-28 rounded-full flex flex-col items-center justify-center transition-all duration-300 transform active:scale-95 shadow-xl focus:outline-none cursor-pointer ${
             isMicActive
               ? 'bg-gradient-to-tr from-amber-500 via-orange-500 to-amber-400 text-slate-950 animate-orbital-pulse ring-6 ring-amber-500/25'
               : isSpeaking
               ? 'bg-gradient-to-tr from-emerald-500 to-teal-500 text-slate-950 ring-6 ring-emerald-500/25'
+              : isMicMuted
+              ? 'bg-gradient-to-tr from-slate-900 via-slate-850 to-slate-800 text-rose-400 hover:text-rose-300 hover:border-rose-500/50 border-2 border-slate-700 ring-6 ring-slate-900/40'
               : 'bg-gradient-to-tr from-slate-800 via-slate-800 to-slate-700 text-amber-400 hover:text-amber-300 hover:border-amber-500/50 border-2 border-slate-600 ring-6 ring-slate-800/40'
           }`}
         >
-          <Mic className={`w-8 h-8 sm:w-10 sm:h-10 mb-0.5 ${isMicActive ? 'animate-bounce' : ''}`} />
+          {isMicMuted && !isMicActive && !isSpeaking ? (
+            <MicOff className="w-8 h-8 sm:w-10 sm:h-10 mb-0.5 text-rose-400" />
+          ) : (
+            <Mic className={`w-8 h-8 sm:w-10 sm:h-10 mb-0.5 ${isMicActive ? 'animate-bounce' : ''}`} />
+          )}
           <span className="text-[10px] font-bold tracking-wider uppercase">
-            {isMicActive ? 'Tap When Done' : isSpeaking ? 'Speaking...' : 'Tap to Speak'}
+            {isMicActive
+              ? 'Turn Off Mic'
+              : isSpeaking
+              ? 'Speaking...'
+              : isMicMuted
+              ? 'Turn On Mic'
+              : 'Tap to Speak'}
           </span>
         </button>
 
@@ -220,13 +249,24 @@ export const VoiceConversationHub: React.FC<VoiceConversationHubProps> = ({
                 🎙️ Listening: <span className="font-semibold text-white">"{transcriptInterim}"</span>
               </div>
             )}
-            <button
-              onClick={() => voiceService.finishSpeakingNow()}
-              className="px-4 py-1.5 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-md shadow-amber-500/20 transition-all cursor-pointer"
-            >
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>Done Speaking (Send Now)</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => voiceService.finishSpeakingNow()}
+                className="px-3.5 py-1.5 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-md shadow-amber-500/20 transition-all cursor-pointer"
+                title="Send current speech immediately"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Done Speaking (Send)</span>
+              </button>
+              <button
+                onClick={onToggleMic}
+                className="px-3.5 py-1.5 rounded-full bg-slate-800 hover:bg-slate-700 text-rose-300 hover:text-rose-200 border border-rose-600/40 font-semibold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                title="Turn off microphone without sending"
+              >
+                <MicOff className="w-3.5 h-3.5" />
+                <span>Turn Off Mic</span>
+              </button>
+            </div>
           </div>
         )}
       </div>
