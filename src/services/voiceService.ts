@@ -128,6 +128,7 @@ export class VoiceService {
     }
 
     try {
+      this.stopListening();
       this.stopSpeaking();
 
       const meta = SUPPORTED_LANGUAGES.find(l => l.code === lang);

@@ -33,14 +33,21 @@ export const SkillProfileCard: React.FC<SkillProfileCardProps> = ({
   const t = I18N_DATA[currentLanguage] || I18N_DATA.kn;
 
   const occLower = (profile.occupation || '').toLowerCase();
-  const isTech = occLower.includes('comput') || occLower.includes('software') || occLower.includes('engineer') || occLower.includes('developer') || occLower.includes('ai') || occLower.includes('agent');
-  const isElec = occLower.includes('electr') || occLower.includes('solar');
-  const isTailor = occLower.includes('tailor') || occLower.includes('stitch');
-  const isAuto = occLower.includes('driver') || occLower.includes('mechanic');
+  const aspLower = (profile.targetAspiration || '').toLowerCase();
+  const combined = `${occLower} ${aspLower}`;
 
-  const sectorIcon = isTech ? '💻' : isElec ? '⚡' : isTailor ? '🧵' : isAuto ? '🚗' : '🌾';
-  const sectorBadge = isTech ? 'IT & Artificial Intelligence' : isElec ? 'Renewable Energy & Power' : isTailor ? 'Apparel & Fashion Tech' : isAuto ? 'Automotive & Logistics' : 'Agriculture & Agri-Tech';
-  const nsqfLevel = isTech ? 'Level 6-7' : isElec ? 'Level 4-5' : isTailor ? 'Level 3-4' : isAuto ? 'Level 4' : 'Level 3-5';
+  const isCivilServices = combined.includes('civil') || combined.includes('ias') || combined.includes('ips') || combined.includes('upsc') || combined.includes('kpsc') || combined.includes('public admin') || combined.includes('governance');
+  const isEventHospitality = combined.includes('event') || combined.includes('cater') || combined.includes('hotel') || combined.includes('hospitality');
+  const isTech = combined.includes('comput') || combined.includes('software') || combined.includes('engineer') || combined.includes('developer') || combined.includes('ai') || combined.includes('agent') || combined.includes('python');
+  const isHealth = combined.includes('nurse') || combined.includes('health') || combined.includes('medical') || combined.includes('clinic') || combined.includes('hospital');
+  const isElec = combined.includes('electr') || combined.includes('solar') || combined.includes('wireman');
+  const isTailor = combined.includes('tailor') || combined.includes('stitch') || combined.includes('dress') || combined.includes('cloth');
+  const isAuto = combined.includes('driver') || combined.includes('mechanic') || combined.includes('auto') || combined.includes('vehicle');
+  const isAgri = combined.includes('farm') || combined.includes('crop') || combined.includes('tractor') || combined.includes('agri') || combined.includes('dairy');
+
+  const sectorIcon = isCivilServices ? '🏛️' : isEventHospitality ? '🎪' : isTech ? '💻' : isHealth ? '🩺' : isElec ? '⚡' : isTailor ? '🧵' : isAuto ? '🚗' : isAgri ? '🌾' : '🎓';
+  const sectorBadge = isCivilServices ? 'Civil Services & Public Administration' : isEventHospitality ? 'Tourism & Event Operations' : isTech ? 'IT & Artificial Intelligence' : isHealth ? 'Healthcare & Allied Medical' : isElec ? 'Renewable Energy & Power' : isTailor ? 'Apparel & Fashion Tech' : isAuto ? 'Automotive & Logistics' : isAgri ? 'Agriculture & Agri-Tech' : 'National Skilling & Enterprise';
+  const nsqfLevel = isCivilServices ? 'Level 6-8' : isEventHospitality ? 'Level 4-6' : isTech ? 'Level 6-7' : isHealth ? 'Level 4-5' : isElec ? 'Level 4-5' : isTailor ? 'Level 3-4' : isAuto ? 'Level 4' : 'Level 3-5';
 
   const toolsList = parseToolTokens(profile.toolsEquipment);
 

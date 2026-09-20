@@ -198,11 +198,21 @@ export const App: React.FC = () => {
   const handleProcessUserInput = async (userInput: string) => {
     if (!userInput.trim()) return;
 
-    // Add User turn
+    // Immediately stop mic and audio to prevent feedback loops
+    voiceService.stopListening();
+    voiceService.stopSpeaking();
+
+    // Add User turn (clean up display if internal command)
+    const displayText = userInput === 'CONFIRMED_YES' 
+      ? (currentLanguageRef.current === 'kn' ? 'ಹೌದು, ಇದು ಸಂಪೂರ್ಣ ಸರಿಯಾಗಿದೆ.' : currentLanguageRef.current === 'hi' ? 'हाँ, यह बिल्कुल सही है।' : 'Yes, this is completely correct.')
+      : userInput === 'CORRECTION_NO'
+      ? (currentLanguageRef.current === 'kn' ? 'ಇಲ್ಲ, ನಾನು ಇದನ್ನು ತಿದ್ದುತ್ತೇನೆ.' : currentLanguageRef.current === 'hi' ? 'नहीं, मैं इसमें सुधार करना चाहता हूँ।' : 'No, let me correct it.')
+      : userInput.trim();
+
     const userTurn: DialogueTurn = {
       id: `turn-${Date.now()}`,
       speaker: 'user',
-      text: userInput.trim(),
+      text: displayText,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
 
@@ -255,14 +265,14 @@ export const App: React.FC = () => {
         () => setMicState('RESPONDING'),
         () => {
           setMicState('IDLE');
-          // If auto-listen is enabled and we still need user input, trigger mic automatically!
+          // If auto-listen is enabled and we still need user input, trigger mic automatically with safe delay!
           if (
             autoListenRef.current && 
             res.nextState !== 'RESULTS_VIEW'
           ) {
             setTimeout(() => {
               startListeningInternal();
-            }, 500);
+            }, 600);
           }
         }
       );
@@ -272,28 +282,8 @@ export const App: React.FC = () => {
   };
 
   const handleReadbackConfirm = (isConfirmed: boolean) => {
-    let responseText = '';
-    if (isConfirmed) {
-      switch (currentLanguageRef.current) {
-        case 'kn': responseText = 'ಹೌದು, ಇದು ಸಂಪೂರ್ಣ ಸರಿಯಾಗಿದೆ.'; break;
-        case 'hi': responseText = 'हाँ, यह बिल्कुल सही है।'; break;
-        case 'te': responseText = 'అవును, ఇది పూర్తిగా సరైనది.'; break;
-        case 'ta': responseText = 'ஆம், இது முற்றிலும் சரியானது.'; break;
-        case 'mr': responseText = 'होय, हे अगदी बरोबर आहे.'; break;
-        default: responseText = 'Yes, this is completely correct.';
-      }
-    } else {
-      switch (currentLanguageRef.current) {
-        case 'kn': responseText = 'ಇಲ್ಲ, ನಾನು ಇದನ್ನು ತಿದ್ದುತ್ತೇನೆ.'; break;
-        case 'hi': responseText = 'नहीं, मैं इसमें सुधार करना चाहता हूँ।'; break;
-        case 'te': responseText = 'కాదు, ನಾನು ಇದನ್ನು ತಿದ್ದುತ್ತೇನೆ.'; break;
-        case 'ta': responseText = 'இல்லை, நான் திருத்த விரும்புகிறேன்.'; break;
-        case 'mr': responseText = 'नाही, मला दुरुस्ती करायची आहे.'; break;
-        default: responseText = 'No, let me correct it.';
-      }
-    }
-
-    handleProcessUserInput(responseText);
+    const command = isConfirmed ? 'CONFIRMED_YES' : 'CORRECTION_NO';
+    handleProcessUserInput(command);
   };
 
   const handleStartFieldSession = (_name: string, trade: string) => {

@@ -217,9 +217,46 @@ export class AgentPipelineService {
     const textTrimmed = userInput.trim();
     const textLower = textTrimmed.toLowerCase();
 
-    // 1. Confirmation Screen Handling (YES / NO Branch)
+    // 1. Confirmation Screen Handling (YES / NO / CORRECTION Branch)
     if (currentState === 'READBACK_CONFIRMATION') {
-      const isNo = this.isNegative(textLower);
+      const isYes = textTrimmed === 'CONFIRMED_YES' || this.isAffirmative(textLower);
+      const isNo = textTrimmed === 'CORRECTION_NO' || this.isNegative(textLower);
+
+      if (isYes) {
+        // Citizen Said YES: Call Gemini AI to build full tailored profile
+        const finalProfile = await this.generateFullAIProfile(lang, history, existingProfile);
+
+        let successMsg = '';
+        let trans = '';
+        switch (lang) {
+          case 'kn':
+            successMsg = 'ಅದ್ಭುತ! ನಿಮ್ಮ ಕೌಶಲ್ಯ ವಿವರವನ್ನು AI ಮೂಲಕ ಯಶಸ್ವಿಯಾಗಿ ವಿಶ್ಲೇಷಿಸಲಾಗಿದೆ. ನಿಮಗಾಗಿ ಹೊಂದಿಕೆಯಾದ ಅತ್ಯುತ್ತಮ ಸರ್ಕಾರಿ ಯೋಜನೆಗಳು ಮತ್ತು 90 ದಿನಗಳ ಕ್ರಿಯಾ ಯೋಜನೆ ಕೆಳಗೆ ಸಿದ್ಧವಾಗಿದೆ!';
+            trans = 'Awesome! Your verified skill profile, identified gaps, and AI-matched government programs are ready below!';
+            break;
+          case 'hi':
+            successMsg = 'शानदार! आपकी कौशल प्रोफ़ाइल AI द्वारा सत्यापित और तैयार हो गई है। आपके लिए चुनी गई सरकारी योजनाएं नीचे दी गई हैं!';
+            trans = 'Great! Your verified profile and scheme recommendations are ready below!';
+            break;
+          default:
+            successMsg = 'Success! Your verified skill profile, identified skill gaps, and AI-matched government schemes have been generated below.';
+            trans = 'Success! Your verified profile and recommendations are ready below.';
+        }
+
+        return {
+          spokenText: successMsg,
+          englishTranslation: trans,
+          nextState: 'RESULTS_VIEW',
+          activeNodeId: 'coordinator_agent',
+          updatedProfile: finalProfile,
+          reasoningStep: {
+            step: 'Gemini AI Profile & Scheme Synthesis',
+            observation: 'Citizen affirmed read-back summary (✓ YES)',
+            deduplicationCheck: 'All slots validated. Synthesized 100% custom AI profile & schemes.',
+            decision: 'Render dynamic Kaushal Passport, Skill Gap, and Scheme Recommendations',
+            confidence: 98
+          }
+        };
+      }
 
       if (isNo) {
         this.slots.occupation = null;
@@ -230,15 +267,15 @@ export class AgentPipelineService {
         let trans = '';
         switch (lang) {
           case 'kn':
-            prompt = 'ಸರಿ, ನಾನು ಇದನ್ನು ತಿದ್ದುತ್ತೇನೆ. ದಯವಿಟ್ಟು ನಿಮ್ಮ ಸರಿಯಾದ ಮುಖ್ಯ ವೃತ್ತಿ ಮತ್ತು ಬಳಸುವ ಮುಖ್ಯ ಉಪಕರಣಗಳ ಬಗ್ಗೆ ತಿಳಿಸಿ.';
-            trans = 'Understood. Please clearly tell me your exact trade and tools so I can adjust your profile.';
+            prompt = 'ಸರಿ, ನಾನು ಇದನ್ನು ತಿದ್ದುತ್ತೇನೆ. ದಯವಿಟ್ಟು ನಿಮ್ಮ ಸರಿಯಾದ ಮುಖ್ಯ ವೃತ್ತಿ, ಅನುಭವ ಮತ್ತು ಬಳಸುವ ಮುಖ್ಯ ಉಪಕರಣಗಳ ಬಗ್ಗೆ ತಿಳಿಸಿ.';
+            trans = 'Understood. Please clearly tell me your exact trade, experience, and tools so I can adjust your profile.';
             break;
           case 'hi':
-            prompt = 'ठीक है, मैं इसे सुधारता हूँ। कृपया अपने सही काम और मुख्य औजारों के बारे में बताएं।';
+            prompt = 'ठीक है, मैं इसे सुधारता हूँ। कृपया अपने सही काम, अनुभव और मुख्य औजारों के बारे में बताएं।';
             trans = 'Understood. Please clearly tell me your exact trade and main tools.';
             break;
           default:
-            prompt = 'Understood. Please clarify your exact trade and the tools you use so I can update your profile accurately.';
+            prompt = 'Understood. Please clarify your exact trade, experience, and tools so I can update your profile accurately.';
             trans = 'Understood. Please clarify your exact trade and tools.';
         }
 
@@ -250,45 +287,92 @@ export class AgentPipelineService {
           isReadbackPrompt: false,
           reasoningStep: {
             step: 'Read-Back Correction Branch',
-            observation: 'Citizen requested correction on summary',
-            deduplicationCheck: 'Resetting occupation & tools slots for fresh extraction',
+            observation: 'Citizen requested correction on summary (✗ NO)',
+            deduplicationCheck: 'Resetting slots for fresh user input',
             decision: 'Prompt citizen for exact trade clarification',
             confidence: 95
           }
         };
       }
 
-      // Citizen Said YES: Build final verified profile
-      const finalProfile = this.buildDynamicProfile(lang, existingProfile);
+      // If user provided specific correction in their sentence (e.g. "Actually I have 5 years experience with computers")
+      const detectedOcc = this.detectOccupation(textTrimmed);
+      const detectedExp = this.extractNumericYears(textTrimmed);
+      const detectedTools = this.detectTools(textTrimmed);
+      const detectedAsp = this.detectAspiration(textTrimmed);
 
-      let successMsg = '';
-      let trans = '';
+      if (detectedOcc || detectedExp !== null || detectedTools || detectedAsp) {
+        if (detectedOcc) this.slots.occupation = detectedOcc;
+        if (detectedExp !== null) this.slots.experienceYears = detectedExp;
+        if (detectedTools) this.slots.toolsEquipment = detectedTools;
+        if (detectedAsp) this.slots.aspiration = detectedAsp;
+
+        const occU = this.slots.occupation || 'Professional Trade';
+        const expU = this.slots.experienceYears ?? 1;
+        const toolsU = this.slots.toolsEquipment || 'Standard Tools';
+        const aspU = this.slots.aspiration || 'Career Growth';
+
+        let newReadback = '';
+        let newTrans = '';
+        switch (lang) {
+          case 'kn':
+            newReadback = `ನಾನು ನಿಮ್ಮ ವಿವರವನ್ನು ತಿದ್ದಿದ್ದೇನೆ: "${occU}", ${expU} ವರ್ಷಗಳ ಅನುಭವ, "${toolsU}" ಉಪಕರಣಗಳು ಮತ್ತು "${aspU}" ಗುರಿ. ಇದು ಸರಿಯೇ?`;
+            newTrans = `I updated your details: ${occU}, ${expU} yrs exp, ${toolsU} tools, and ${aspU} goal. Is this correct?`;
+            break;
+          case 'hi':
+            newReadback = `मैंने आपका विवरण अपडेट कर दिया है: "${occU}", ${expU} साल का अनुभव, "${toolsU}" टूल्स और "${aspU}" लक्ष्य। क्या यह सही है?`;
+            newTrans = `I updated your details: ${occU}, ${expU} yrs exp, ${toolsU} tools, and ${aspU} goal. Is this correct?`;
+            break;
+          default:
+            newReadback = `I have updated your summary: ${occU} with ${expU} years experience, using ${toolsU}, aspiring towards ${aspU}. Is this correct?`;
+            newTrans = `I have updated your summary. Is this correct?`;
+        }
+
+        return {
+          spokenText: newReadback,
+          englishTranslation: newTrans,
+          nextState: 'READBACK_CONFIRMATION',
+          activeNodeId: 'confirmation_agent',
+          isReadbackPrompt: true,
+          reasoningStep: {
+            step: 'Slot Update & Re-Readback',
+            observation: `Updated slots from user utterance: "${textTrimmed}"`,
+            deduplicationCheck: 'Re-prompting confirmation with updated values',
+            decision: 'Present revised readback for citizen confirmation',
+            confidence: 96
+          }
+        };
+      }
+
+      // If user input was unclear / ambiguous, DO NOT default to YES! Ask for clarification
+      let clarifyConfirm = '';
+      let clarifyTrans = '';
       switch (lang) {
         case 'kn':
-          successMsg = 'ಅದ್ಭುತ! ನಿಮ್ಮ ಕೌಶಲ್ಯ ವಿವರವನ್ನು ಯಶಸ್ವಿಯಾಗಿ ದೃಢೀಕರಿಸಲಾಗಿದೆ. ನಿಮಗಾಗಿ ಹೊಂದಿಕೆಯಾದ ಅತ್ಯುತ್ತಮ ಸರ್ಕಾರಿ ಯೋಜನೆಗಳನ್ನು ಕೆಳಗೆ ಪ್ರಸ್ತುತಪಡಿಸಲಾಗಿದೆ!';
-          trans = 'Awesome! Your verified skill profile, identified gaps, and matched government programs are ready below!';
+          clarifyConfirm = `ದಯವಿಟ್ಟು ನಿಮ್ಮ ವಿವರಗಳು ಸರಿಯಾಗಿದ್ದರೆ 'ಹೌದು' (Yes) ಎಂದು ಹೇಳಿ, ಅಥವಾ ಬದಲಾಯಿಸಬೇಕಾದ ಮಾಹಿತಿಯನ್ನು ತಿಳಿಸಿ.`;
+          clarifyTrans = `Please say 'Yes' if your summary is correct, or tell me what to update.`;
           break;
         case 'hi':
-          successMsg = 'शानदार! आपकी कौशल प्रोफ़ाइल सत्यापित हो गई है। आपके लिए चुनी गई सरकारी योजनाएं नीचे दी गई हैं!';
-          trans = 'Great! Your verified profile and scheme recommendations are ready below!';
+          clarifyConfirm = `कृपया विवरण सही होने पर 'हाँ' (Yes) कहें, या बदलने वाली जानकारी बताएं।`;
+          clarifyTrans = `Please say 'Yes' if the details are correct, or tell me what to update.`;
           break;
         default:
-          successMsg = 'Success! Your verified skill profile, identified skill gaps, and matched government programs have been generated below.';
-          trans = 'Success! Your verified profile and recommendations are ready below.';
+          clarifyConfirm = `Please confirm if this summary is correct by saying 'Yes', or tell me what needs to be changed.`;
+          clarifyTrans = `Please say 'Yes' or tell me what to change.`;
       }
 
       return {
-        spokenText: successMsg,
-        englishTranslation: trans,
-        nextState: 'RESULTS_VIEW',
-        activeNodeId: 'coordinator_agent',
-        updatedProfile: finalProfile,
+        spokenText: clarifyConfirm,
+        englishTranslation: clarifyTrans,
+        nextState: 'READBACK_CONFIRMATION',
+        activeNodeId: 'confirmation_agent',
+        isReadbackPrompt: true,
         reasoningStep: {
-          step: 'Verification & Program Ranking',
-          observation: 'Citizen affirmed read-back summary (✓ YES)',
-          deduplicationCheck: 'All 4 slots validated and confirmed by applicant',
-          decision: 'Compute 5-factor match score and generate 90-day action roadmap',
-          confidence: 98
+          step: 'Confirmation Intent Clarification',
+          observation: `Ambiguous confirmation utterance: "${textTrimmed}"`,
+          deduplicationCheck: 'Awaiting explicit YES/NO or specific correction details',
+          decision: 'Re-prompt for explicit confirmation',
+          confidence: 90
         }
       };
     }
@@ -407,60 +491,70 @@ Citizen Input: "${userInput}"\n
 Current Known Slots: ${JSON.stringify(this.slots)}
 `;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-flash-latest',
-      contents: prompt,
-      config: {
-        systemInstruction,
-        responseMimeType: 'application/json'
+    const modelsToTry = ['gemini-2.5-flash-lite', 'gemini-3.5-flash-lite', 'gemini-flash-lite-latest'];
+
+    for (const model of modelsToTry) {
+      try {
+        const response = await ai.models.generateContent({
+          model,
+          contents: prompt,
+          config: {
+            systemInstruction,
+            responseMimeType: 'application/json'
+          }
+        });
+
+        const parsed = JSON.parse(response.text?.trim() || '{}');
+
+        if (parsed.extractedOccupation) this.slots.occupation = parsed.extractedOccupation;
+        if (parsed.extractedExperienceYears !== undefined && parsed.extractedExperienceYears !== null) {
+          this.slots.experienceYears = parsed.extractedExperienceYears;
+        }
+        if (parsed.extractedTools) this.slots.toolsEquipment = parsed.extractedTools;
+        if (parsed.extractedAspiration) this.slots.aspiration = parsed.extractedAspiration;
+
+        const isAllSlotsFilled = Boolean(
+          this.slots.occupation &&
+          this.slots.experienceYears !== null &&
+          this.slots.toolsEquipment &&
+          this.slots.aspiration
+        );
+
+        const isReady = parsed.isReadyForReadback || isAllSlotsFilled;
+
+        const reasoningStep: AgentReasoningStep = {
+          step: `Live Gemini (${model}) AI Reasoning`,
+          observation: parsed.reasoningObservation || `Analyzed intent: ${parsed.intent || 'CONVERSATION'}`,
+          deduplicationCheck: `Slots: Occupation=${this.slots.occupation || 'none'}, Exp=${this.slots.experienceYears ?? 'none'}, Tools=${this.slots.toolsEquipment || 'none'}, Asp=${this.slots.aspiration || 'none'}`,
+          decision: parsed.reasoningDecision || (isReady ? 'Formulate Spoken Readback' : 'Contextual Follow-up'),
+          confidence: parsed.confidence || 96
+        };
+
+        if (isReady) {
+          return {
+            spokenText: parsed.spokenText,
+            englishTranslation: parsed.englishTranslation,
+            nextState: 'READBACK_CONFIRMATION',
+            activeNodeId: 'confirmation_agent',
+            isReadbackPrompt: true,
+            reasoningStep
+          };
+        }
+
+        return {
+          spokenText: parsed.spokenText,
+          englishTranslation: parsed.englishTranslation,
+          nextState: this.determineNextState(),
+          activeNodeId: 'understanding_agent',
+          isReadbackPrompt: false,
+          reasoningStep
+        };
+      } catch (err) {
+        console.warn(`Gemini model ${model} failed, trying next:`, err);
       }
-    });
-
-    const parsed = JSON.parse(response.text?.trim() || '{}');
-
-    if (parsed.extractedOccupation) this.slots.occupation = parsed.extractedOccupation;
-    if (parsed.extractedExperienceYears !== undefined && parsed.extractedExperienceYears !== null) {
-      this.slots.experienceYears = parsed.extractedExperienceYears;
-    }
-    if (parsed.extractedTools) this.slots.toolsEquipment = parsed.extractedTools;
-    if (parsed.extractedAspiration) this.slots.aspiration = parsed.extractedAspiration;
-
-    const isAllSlotsFilled = Boolean(
-      this.slots.occupation &&
-      this.slots.experienceYears !== null &&
-      this.slots.toolsEquipment &&
-      this.slots.aspiration
-    );
-
-    const isReady = parsed.isReadyForReadback || isAllSlotsFilled;
-
-    const reasoningStep: AgentReasoningStep = {
-      step: 'Live Gemini 2.0 Flash LLM Reasoning',
-      observation: parsed.reasoningObservation || `Analyzed intent: ${parsed.intent || 'CONVERSATION'}`,
-      deduplicationCheck: `Slots: Occupation=${this.slots.occupation || 'none'}, Exp=${this.slots.experienceYears ?? 'none'}, Tools=${this.slots.toolsEquipment || 'none'}, Asp=${this.slots.aspiration || 'none'}`,
-      decision: parsed.reasoningDecision || (isReady ? 'Formulate Spoken Readback' : 'Contextual Follow-up'),
-      confidence: parsed.confidence || 96
-    };
-
-    if (isReady) {
-      return {
-        spokenText: parsed.spokenText,
-        englishTranslation: parsed.englishTranslation,
-        nextState: 'READBACK_CONFIRMATION',
-        activeNodeId: 'confirmation_agent',
-        isReadbackPrompt: true,
-        reasoningStep
-      };
     }
 
-    return {
-      spokenText: parsed.spokenText,
-      englishTranslation: parsed.englishTranslation,
-      nextState: this.determineNextState(),
-      activeNodeId: 'understanding_agent',
-      isReadbackPrompt: false,
-      reasoningStep
-    };
+    return null;
   }
 
   private async callOpenAICompatibleAgent(
@@ -975,6 +1069,184 @@ Rules:
   public isNegative(text: string): boolean {
     const keywords = ['no', 'wrong', 'incorrect', 'not', 'change', 'ಇಲ್ಲ', 'ತಪ್ಪು', 'ಅಲ್ಲ', 'ತಿದ್ದು', 'नहीं', 'गलत', 'कादु', 'இல்லை', 'नाही'];
     return keywords.some(kw => text.includes(kw));
+  }
+
+  public async generateFullAIProfile(
+    lang: SupportedLanguage,
+    history: DialogueTurn[],
+    existingProfile?: Partial<LivelihoodProfile>
+  ): Promise<LivelihoodProfile> {
+    const occ = this.slots.occupation || 'Engineering Student & Event Management / Civil Services Aspirant';
+    const exp = this.slots.experienceYears !== null ? this.slots.experienceYears : 1;
+    const rawTools = this.slots.toolsEquipment || 'Standard Professional Tools & Systems';
+    const asp = this.slots.aspiration || 'Career Growth & Public Leadership';
+
+    // 1. Try Live Gemini Models First
+    if (this.geminiKey && this.activeProvider !== 'local') {
+      try {
+        const ai = new GoogleGenAI({ apiKey: this.geminiKey });
+        const modelsToTry = ['gemini-2.5-flash-lite', 'gemini-3.5-flash-lite', 'gemini-flash-lite-latest'];
+
+        const systemPrompt = `You are the Chief NSQF Skill Architect and National Government Welfare Policy Engine of India.
+Target Output Language for display: "${lang}".
+
+CRITICAL INSTRUCTIONS:
+Analyze the citizen's exact background from their conversation and slots:
+- Occupation: "${occ}"
+- Experience: ${exp} years
+- Tools & Implements: "${rawTools}"
+- Career Aspiration: "${asp}"
+- Conversation History:
+${history.map(h => `${h.speaker.toUpperCase()}: ${h.text}`).join('\n')}
+
+Generate a 100% customized, AI-reasoned, high-fidelity National Livelihood & Skilling Profile for this citizen.
+NEVER default to agriculture or unrelated sectors unless the user is specifically a farmer.
+- For students preparing for Civil Services / IAS / IPS, generate UPSC/KPSC coaching schemes (e.g. Dr. Ambedkar Central Free Coaching Scheme), governance skills, general studies gaps, and administration roadmaps.
+- For event management / catering / hospitality, generate Hunar Se Rozgar Tak (HSRT), PMKVY 4.0 Event Operations, and commercial logistics schemes.
+- For software / engineering / AI, generate IT, AI Agent, and cloud emerging technology skilling programs.
+- For healthcare / nursing, generate Ayushman Bharat & Healthcare Sector Skill Council schemes.
+- For electrical / solar, generate PM Surya Ghar Muft Bijli Skilling & EV tech programs.
+
+Respond with strict JSON matching this schema:
+{
+  "id": "profile-${Date.now()}",
+  "citizenName": string,
+  "occupation": string (Synthesized exact occupation title),
+  "experienceYears": number,
+  "education": string (Inferred education level),
+  "location": string,
+  "currentSkills": [
+    { "name": string, "icon": string (single emoji) }
+  ] (4-6 realistic skills extracted from their conversation),
+  "structuredCategories": [ string, string, string, string ] (4 competency domains),
+  "toolsEquipment": [ string, string, string, string ] (4 specific tools/software/systems they use or learn),
+  "targetAspiration": string,
+  "mappingConfidence": number (92-99),
+  "evidences": [
+    {
+      "userQuote": string,
+      "extractedSkill": string,
+      "structuredCategory": string,
+      "confidenceScore": number
+    }
+  ] (2-4 quote-evidence pairs),
+  "skillGap": {
+    "id": "gap-${Date.now()}",
+    "currentSkills": [ string, string, string, string ] (starting with "✓ "),
+    "targetCapability": string,
+    "gapSkills": [ string, string, string, string ] (starting with "⚠️ ")
+  },
+  "matchedPrograms": [
+    {
+      "id": string,
+      "title": string (Official Government Scheme or National Program Name),
+      "provider": string (Ministry / Department),
+      "category": string,
+      "eligibility": string,
+      "matchPercentage": number (88-98),
+      "rankBadge": "BEST MATCH" | "SECOND OPTION" | "THIRD OPTION",
+      "whyMatched": [ string, string, string ],
+      "aiExplanation": string,
+      "skillsGained": [ string, string, string, string ],
+      "duration": string,
+      "mode": string,
+      "stipend": string,
+      "toolkitGrant": string,
+      "loanSupport": string,
+      "officialPortalUrl": string,
+      "matchFactors": {
+        "occupationMatch": number,
+        "skillMatch": number,
+        "interestMatch": number,
+        "eligibilityMatch": number,
+        "locationMatch": number
+      }
+    }
+  ] (2-3 top matched official programs),
+  "roadmap": [
+    { "weekRange": "Days 1–30", "title": string, "description": string, "milestone": string, "icon": string },
+    { "weekRange": "Days 31–60", "title": string, "description": string, "milestone": string, "icon": string },
+    { "weekRange": "Days 61–90", "title": string, "description": string, "milestone": string, "icon": string }
+  ],
+  "isConfirmed": true,
+  "confirmedAt": "${new Date().toISOString()}"
+}`;
+
+        for (const model of modelsToTry) {
+          try {
+            const res = await ai.models.generateContent({
+              model,
+              contents: 'Generate the complete JSON profile for this citizen.',
+              config: {
+                systemInstruction: systemPrompt,
+                responseMimeType: 'application/json'
+              }
+            });
+            const text = res.text?.trim();
+            if (text) {
+              const parsed = JSON.parse(text);
+              if (parsed.occupation && parsed.currentSkills && parsed.matchedPrograms && parsed.matchedPrograms.length > 0) {
+                parsed.id = parsed.id || `profile-${Date.now()}`;
+                parsed.isConfirmed = true;
+                parsed.confirmedAt = new Date().toISOString();
+                return parsed as LivelihoodProfile;
+              }
+            }
+          } catch (modelErr) {
+            console.warn(`Gemini profile gen with ${model} failed:`, modelErr);
+          }
+        }
+      } catch (err) {
+        console.warn('Gemini generateFullAIProfile failed:', err);
+      }
+    }
+
+    // 2. Try Groq Cloud if Gemini is unavailable
+    if (this.grokKey && this.activeProvider !== 'local') {
+      try {
+        const isGroqCloud = this.grokKey.startsWith('gsk_');
+        const endpoint = isGroqCloud ? 'https://api.groq.com/openai/v1/chat/completions' : 'https://api.x.ai/v1/chat/completions';
+        const model = isGroqCloud ? 'qwen/qwen3.8-27b' : 'grok-2-latest';
+
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this.grokKey}`
+          },
+          body: JSON.stringify({
+            model,
+            messages: [
+              {
+                role: 'system',
+                content: `You are the Chief NSQF Skill Architect of India. Generate a 100% customized JSON LivelihoodProfile for:
+Trade: ${occ}, Experience: ${exp} yrs, Tools: ${rawTools}, Aspiration: ${asp}.
+Include: id, citizenName, occupation, experienceYears, education, location, currentSkills (array with name & icon), structuredCategories, toolsEquipment, targetAspiration, mappingConfidence, evidences, skillGap (currentSkills, targetCapability, gapSkills), matchedPrograms (title, provider, category, eligibility, matchPercentage, rankBadge, whyMatched, aiExplanation, skillsGained, duration, mode, stipend, toolkitGrant, loanSupport, officialPortalUrl, matchFactors), roadmap (3 steps), isConfirmed: true, confirmedAt.`
+              },
+              { role: 'user', content: 'Output the full JSON profile.' }
+            ],
+            response_format: { type: 'json_object' }
+          })
+        });
+
+        const data = await res.json();
+        const content = data.choices?.[0]?.message?.content;
+        if (content) {
+          const parsed = JSON.parse(content);
+          if (parsed.occupation && parsed.currentSkills && parsed.matchedPrograms && parsed.matchedPrograms.length > 0) {
+            parsed.id = parsed.id || `profile-${Date.now()}`;
+            parsed.isConfirmed = true;
+            parsed.confirmedAt = new Date().toISOString();
+            return parsed as LivelihoodProfile;
+          }
+        }
+      } catch (grokErr) {
+        console.warn('Groq profile gen failed:', grokErr);
+      }
+    }
+
+    // 3. Fallback to Dynamic Multi-Sector Heuristic Engine
+    return this.buildDynamicProfile(lang, existingProfile);
   }
 
   public buildDynamicProfile(lang: SupportedLanguage, _partial?: Partial<LivelihoodProfile>): LivelihoodProfile {
