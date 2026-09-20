@@ -6,10 +6,12 @@ import {
   Send, 
   RotateCcw, 
   Radio,
-  Headphones
+  Headphones,
+  CheckCircle2
 } from 'lucide-react';
 import type { SupportedLanguage, ConversationState, MicState, DialogueTurn } from '../types';
 import { I18N_DATA } from '../data/i18n';
+import { voiceService } from '../services/voiceService';
 
 interface VoiceConversationHubProps {
   micState: MicState;
@@ -70,11 +72,21 @@ export const VoiceConversationHub: React.FC<VoiceConversationHubProps> = ({
   const isSpeaking = micState === 'RESPONDING';
 
   const quickPrompts = [
-    { label: '👨‍💻 AI Developer', text: 'I am an AI developer with 2 years experience building AI agents using Python and cloud tools.' },
+    { label: '👨‍💻 AI Developer', text: 'I am a software engineer with 10 years experience using Python, VS Code, and Cloud, aiming for AI and Civil Services.' },
     { label: '🌾 Precision Farmer', text: 'ನಾನು 5 ವರ್ಷಗಳಿಂದ ಟ್ರ್ಯಾಕ್ಟರ್ ಬಳಸಿ ಕೃಷಿ ಮಾಡುತ್ತಿದ್ದೇನೆ ಮತ್ತು ಡ್ರಿಪ್ ಆಟೊಮೇಷನ್ ಕಲಿಯಲು ಬಯಸುತ್ತೇನೆ.' },
     { label: '⚡ Solar Electrician', text: 'I am an electrician with 4 years experience in wiring and I want to learn solar installation.' },
-    { label: '🧵 Master Tailor', text: 'I have 6 years tailoring experience using motorized sewing machines and want to learn CAD pattern design.' }
+    { label: '🧵 Master Tailor', text: 'I have 6 years tailoring experience using motorized sewing machines and want to learn CAD pattern design.' },
+    { label: '🔄 Start from the beginning', text: 'Start from the beginning' }
   ];
+
+  const handleMicClick = () => {
+    if (isMicActive) {
+      // If already active and user clicks again, finish and commit what they said
+      voiceService.finishSpeakingNow();
+    } else {
+      onToggleMic();
+    }
+  };
 
   return (
     <div className="w-full h-full min-h-[480px] glass-bento rounded-2xl p-5 sm:p-6 shadow-xl relative overflow-hidden flex flex-col justify-between">
@@ -152,9 +164,9 @@ export const VoiceConversationHub: React.FC<VoiceConversationHubProps> = ({
 
         {/* Main Microphone Action Sphere */}
         <button
-          onClick={onToggleMic}
-          aria-label={isMicActive ? 'Stop listening' : 'Start speaking'}
-          className={`relative w-24 h-24 sm:w-28 sm:h-28 rounded-full flex flex-col items-center justify-center transition-all duration-300 transform active:scale-95 shadow-xl focus:outline-none ${
+          onClick={handleMicClick}
+          aria-label={isMicActive ? 'Done speaking' : 'Start speaking'}
+          className={`relative w-24 h-24 sm:w-28 sm:h-28 rounded-full flex flex-col items-center justify-center transition-all duration-300 transform active:scale-95 shadow-xl focus:outline-none cursor-pointer ${
             isMicActive
               ? 'bg-gradient-to-tr from-amber-500 via-orange-500 to-amber-400 text-slate-950 animate-orbital-pulse ring-6 ring-amber-500/25'
               : isSpeaking
@@ -164,7 +176,7 @@ export const VoiceConversationHub: React.FC<VoiceConversationHubProps> = ({
         >
           <Mic className={`w-8 h-8 sm:w-10 sm:h-10 mb-0.5 ${isMicActive ? 'animate-bounce' : ''}`} />
           <span className="text-[10px] font-bold tracking-wider uppercase">
-            {isMicActive ? 'Listening...' : isSpeaking ? 'Speaking...' : 'Tap to Speak'}
+            {isMicActive ? 'Tap When Done' : isSpeaking ? 'Speaking...' : 'Tap to Speak'}
           </span>
         </button>
 
@@ -188,10 +200,21 @@ export const VoiceConversationHub: React.FC<VoiceConversationHubProps> = ({
           ))}
         </div>
 
-        {/* Interim Streaming Speech Transcript Indicator */}
-        {transcriptInterim && (
-          <div className="w-full max-w-sm mt-3 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-300 font-medium text-center animate-pulse shadow-sm">
-            🎙️ Hearing: "{transcriptInterim}"
+        {/* Interim Streaming Speech Transcript Indicator & Done Button */}
+        {isMicActive && (
+          <div className="w-full max-w-md mt-3 flex flex-col items-center gap-2">
+            {transcriptInterim && (
+              <div className="w-full px-3 py-2 rounded-xl bg-amber-500/15 border border-amber-500/40 text-xs text-amber-200 font-medium text-center shadow-sm">
+                🎙️ Listening: <span className="font-semibold text-white">"{transcriptInterim}"</span>
+              </div>
+            )}
+            <button
+              onClick={() => voiceService.finishSpeakingNow()}
+              className="px-4 py-1.5 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-md shadow-amber-500/20 transition-all cursor-pointer"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>Done Speaking (Send Now)</span>
+            </button>
           </div>
         )}
       </div>
@@ -208,7 +231,7 @@ export const VoiceConversationHub: React.FC<VoiceConversationHubProps> = ({
               <button
                 key={idx}
                 onClick={() => onSendMessage(p.text)}
-                className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-slate-800/80 hover:bg-slate-700/90 text-slate-200 border border-slate-700/80 hover:border-amber-500/40 transition-all hover:scale-102 shadow-xs"
+                className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-slate-800/80 hover:bg-slate-700/90 text-slate-200 border border-slate-700/80 hover:border-amber-500/40 transition-all hover:scale-102 shadow-xs cursor-pointer"
               >
                 {p.label}
               </button>
@@ -235,7 +258,7 @@ export const VoiceConversationHub: React.FC<VoiceConversationHubProps> = ({
           <button
             type="submit"
             disabled={!inputText.trim()}
-            className="p-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:bg-slate-800 disabled:text-slate-600 text-slate-950 font-bold transition-all shadow-sm disabled:shadow-none"
+            className="p-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:bg-slate-800 disabled:text-slate-600 text-slate-950 font-bold transition-all shadow-sm disabled:shadow-none cursor-pointer"
           >
             <Send className="w-3.5 h-3.5" />
           </button>

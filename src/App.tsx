@@ -232,6 +232,45 @@ export const App: React.FC = () => {
       profile
     );
 
+    // If Session Reset Command: Clear profile, reset visualizer and restart fresh
+    if (res.reasoningStep?.step === 'Session Reset Command' || agentPipeline.isResetCommand(userInput)) {
+      setProfile(undefined);
+      setReadbackPrompt(null);
+      setConversationState('INTERVIEW_OCCUPATION');
+      setRightPanelTab('feed');
+      updateAgentNodeStatus('voice_agent');
+
+      const greetingTurn: DialogueTurn = {
+        id: `turn-ai-${Date.now()}`,
+        speaker: 'ai',
+        text: res.spokenText,
+        translation: res.englishTranslation,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        agentNode: 'voice_agent'
+      };
+
+      setHistory([userTurn, greetingTurn]);
+
+      if (audioEnabled) {
+        voiceService.speak(
+          res.spokenText,
+          currentLanguageRef.current,
+          () => setMicState('RESPONDING'),
+          () => {
+            setMicState('IDLE');
+            if (autoListenRef.current) {
+              setTimeout(() => {
+                startListeningInternal();
+              }, 600);
+            }
+          }
+        );
+      } else {
+        setMicState('IDLE');
+      }
+      return;
+    }
+
     updateAgentNodeStatus(res.activeNodeId);
     setConversationState(res.nextState);
 

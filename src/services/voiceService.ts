@@ -12,19 +12,20 @@ export class VoiceService {
   private recognition: any = null;
   private isListening: boolean = false;
   private isSpeaking: boolean = false;
-  private currentLanguage: SupportedLanguage = 'en'; // Default initial language or synced
+  private currentLanguage: SupportedLanguage = 'en';
   private speechTimeout: any = null;
-
-  constructor() {
-    // Initialized dynamically per session
-  }
+  private silenceTimer: any = null;
+  private accumulatedText: string = '';
+  private interimText: string = '';
+  private onResultCallback: ((text: string, isFinal: boolean) => void) | null = null;
+  private onEndCallback: (() => void) | null = null;
 
   public setLanguage(lang: SupportedLanguage) {
     this.currentLanguage = lang;
     if (this.recognition && this.isListening) {
       try {
         this.recognition.abort();
-      } catch (e) {
+      } catch {
         // ignore
       }
       this.isListening = false;
@@ -43,7 +44,7 @@ export class VoiceService {
   ): boolean {
     const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRec) {
-      onError('Browser Speech Recognition is not supported. Please type in the text box or use demo mode.');
+      onError('Browser Speech Recognition is not supported. Please type in the text box.');
       return false;
     }
 
@@ -51,9 +52,14 @@ export class VoiceService {
       this.stopSpeaking();
       this.stopListening();
 
-      // Clean, fresh recognition instance per session with exact locale
+      this.accumulatedText = '';
+      this.interimText = '';
+      this.onResultCallback = onResult;
+      this.onEndCallback = onEnd;
+
       this.recognition = new SpeechRec();
-      this.recognition.continuous = false;
+      // Enable continuous listening so the mic stays open while the user speaks multiple sentences/phrases
+      this.recognition.continuous = true;
       this.recognition.interimResults = true;
       this.recognition.maxAlternatives = 1;
 
@@ -62,35 +68,60 @@ export class VoiceService {
       const speechCode = meta ? meta.speechCode : (lang === 'kn' ? 'kn-IN' : 'en-IN');
       this.recognition.lang = speechCode;
 
+      const resetSilenceTimer = () => {
+        if (this.silenceTimer) clearTimeout(this.silenceTimer);
+        // After 2.0 seconds of silence with spoken content, commit the final result
+        this.silenceTimer = setTimeout(() => {
+          const fullText = (this.accumulatedText + ' ' + this.interimText).trim();
+          if (fullText.length > 0 && this.isListening) {
+            this.commitResultAndStop(fullText);
+          }
+        }, 2000);
+      };
+
       this.recognition.onresult = (event: any) => {
-        let interim = '';
-        let final = '';
+        let currentInterim = '';
 
         for (let i = event.resultIndex; i < event.results.length; ++i) {
+          const transcriptChunk = event.results[i][0]?.transcript || '';
           if (event.results[i].isFinal) {
-            final += event.results[i][0].transcript;
+            this.accumulatedText = (this.accumulatedText + ' ' + transcriptChunk).trim();
           } else {
-            interim += event.results[i][0].transcript;
+            currentInterim += transcriptChunk;
           }
         }
 
-        if (final.trim().length > 0) {
-          onResult(final.trim(), true);
-        } else if (interim.trim().length > 0) {
-          onResult(interim.trim(), false);
+        this.interimText = currentInterim;
+        const currentFull = (this.accumulatedText + ' ' + this.interimText).trim();
+
+        if (currentFull.length > 0) {
+          onResult(currentFull, false);
+          resetSilenceTimer();
         }
       };
 
       this.recognition.onerror = (event: any) => {
-        console.warn('Voice recognition error for locale', speechCode, ':', event.error);
-        if (event.error !== 'no-speech' && event.error !== 'aborted') {
+        console.warn('Voice recognition notice for locale', speechCode, ':', event.error);
+        if (event.error === 'no-speech') {
+          // Keep listening rather than closing immediately on mild pauses
+          return;
+        }
+        if (event.error !== 'aborted') {
           onError(event.error);
         }
       };
 
       this.recognition.onend = () => {
-        this.isListening = false;
-        onEnd();
+        if (this.isListening) {
+          // If recognition ended naturally, check if we have text to commit
+          const fullText = (this.accumulatedText + ' ' + this.interimText).trim();
+          if (fullText.length > 0) {
+            this.commitResultAndStop(fullText);
+          } else {
+            this.isListening = false;
+            if (this.onEndCallback) this.onEndCallback();
+          }
+        }
       };
 
       this.recognition.start();
@@ -104,16 +135,51 @@ export class VoiceService {
     }
   }
 
+  private commitResultAndStop(fullText: string) {
+    if (this.silenceTimer) {
+      clearTimeout(this.silenceTimer);
+      this.silenceTimer = null;
+    }
+
+    const callback = this.onResultCallback;
+    const endCb = this.onEndCallback;
+
+    this.stopListening();
+
+    if (callback && fullText.trim().length > 0) {
+      callback(fullText.trim(), true);
+    }
+    if (endCb) {
+      endCb();
+    }
+  }
+
+  public finishSpeakingNow() {
+    const fullText = (this.accumulatedText + ' ' + this.interimText).trim();
+    if (fullText.length > 0) {
+      this.commitResultAndStop(fullText);
+    } else {
+      this.stopListening();
+    }
+  }
+
   public stopListening() {
+    if (this.silenceTimer) {
+      clearTimeout(this.silenceTimer);
+      this.silenceTimer = null;
+    }
     if (this.recognition) {
       try {
+        this.recognition.onresult = null;
+        this.recognition.onerror = null;
+        this.recognition.onend = null;
         this.recognition.abort();
-      } catch (e) {
+      } catch {
         // ignore
       }
       this.recognition = null;
-      this.isListening = false;
     }
+    this.isListening = false;
   }
 
   public speak(
@@ -161,7 +227,7 @@ export class VoiceService {
         if (onStart) onStart();
 
         // Safety timeout in case browser speech synth stalls
-        const estimatedDurationMs = Math.max(3000, (text.length / 10) * 1000 + 2000);
+        const estimatedDurationMs = Math.max(3000, (text.length / 10) * 1000 + 2500);
         if (this.speechTimeout) clearTimeout(this.speechTimeout);
         this.speechTimeout = setTimeout(() => {
           if (this.isSpeaking) {
@@ -175,7 +241,7 @@ export class VoiceService {
       };
 
       utterance.onerror = (e) => {
-        console.warn('Speech synthesis utterance error:', e);
+        console.warn('Speech synthesis utterance notice:', e);
         safeEnd();
       };
 
@@ -195,7 +261,7 @@ export class VoiceService {
     if ('speechSynthesis' in window) {
       try {
         window.speechSynthesis.cancel();
-      } catch (e) {
+      } catch {
         // ignore
       }
     }

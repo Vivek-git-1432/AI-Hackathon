@@ -267,6 +267,27 @@ export class AgentPipelineService {
     const textTrimmed = userInput.trim();
     const textLower = textTrimmed.toLowerCase();
 
+    // 0. Session Reset / "Start from the beginning" Command
+    if (this.isResetCommand(textLower)) {
+      this.resetInterview();
+      const greeting = this.getInitialGreeting(lang);
+      return {
+        spokenText: greeting.text,
+        englishTranslation: greeting.translation,
+        nextState: 'INTERVIEW_OCCUPATION',
+        activeNodeId: 'voice_agent',
+        updatedProfile: undefined,
+        isReadbackPrompt: false,
+        reasoningStep: {
+          step: 'Session Reset Command',
+          observation: `Citizen commanded restart: "${textTrimmed}"`,
+          deduplicationCheck: 'Cleared all 4 slots, reset profile, returned to initial greeting',
+          decision: 'Restart fresh conversational interview from the beginning',
+          confidence: 100
+        }
+      };
+    }
+
     // 1. Confirmation Screen Handling (YES / NO / CORRECTION Branch)
     if (currentState === 'READBACK_CONFIRMATION') {
       const isYes = textTrimmed === 'CONFIRMED_YES' || this.isAffirmative(textLower);
@@ -965,6 +986,43 @@ Rules:
     if (this.slots.toolsEquipment === null) return 'INTERVIEW_TOOLS_ACTIVITIES';
     if (this.slots.aspiration === null) return 'INTERVIEW_ASPIRATION';
     return 'READBACK_CONFIRMATION';
+  }
+
+  public isResetCommand(text: string): boolean {
+    const t = text.toLowerCase().trim();
+    const resetPhrases = [
+      'start from the beginning',
+      'start from beginning',
+      'start over',
+      'start again',
+      'restart',
+      'reset',
+      'restart conversation',
+      'clear all',
+      'clear everything',
+      'begin again',
+      'start from start',
+      'from the beginning',
+      'from beginning',
+      'ಮೊದಲಿನಿಂದ ಪ್ರಾರಂಭಿಸಿ',
+      'ಮೊದಲಿಂದ ಶುರು ಮಾಡಿ',
+      'ಮತ್ತೆ ಪ್ರಾರಂಭಿಸಿ',
+      'ರೀಸೆಟ್',
+      'ಶುರು ಮಾಡಿ',
+      'ಆರಂಭದಿಂದ',
+      'ಶುರುವಿನಿಂದ',
+      'शुरू से शुरू करें',
+      'शुरू से',
+      'दोबारा शुरू करें',
+      'रीसेट करें',
+      'फिर से शुरू करें',
+      'మొదటి నుండి ప్రారంభించండి',
+      'మళ్లీ ప్రారంభించండి',
+      'రీసెట్',
+      'மீண்டும் தொடங்கவும்',
+      'ஆரம்பத்தில் இருந்து தொடங்கவும்'
+    ];
+    return resetPhrases.some(p => t === p || t.includes(p) || p.includes(t));
   }
 
   private isGreeting(text: string): boolean {

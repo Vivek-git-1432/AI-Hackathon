@@ -36,12 +36,9 @@ export const ProgramRecommendations: React.FC<ProgramRecommendationsProps> = ({
     e.stopPropagation();
     if (!url) return;
     try {
-      const opened = window.open(url, '_blank', 'noopener,noreferrer');
-      if (!opened || opened.closed || typeof opened.closed === 'undefined') {
-        window.location.href = url;
-      }
+      window.open(url, '_blank', 'noopener,noreferrer');
     } catch {
-      window.open(url, '_blank');
+      // ignore
     }
   };
 
