@@ -153,6 +153,16 @@ export const SkillProfileCard: React.FC<SkillProfileCardProps> = ({
               </span>
             </div>
           </div>
+          {profile.location && (
+            <div className="pt-2 border-t border-slate-700/50 flex items-center justify-between text-xs">
+              <span className="text-slate-300 font-medium flex items-center gap-1 text-[11px]">
+                📍 {profile.location}
+              </span>
+              <span className="text-[9px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 font-mono">
+                Verified Postal District
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Current Extracted Skills */}
