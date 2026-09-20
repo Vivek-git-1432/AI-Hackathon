@@ -46,6 +46,7 @@ export interface AgentReasoningStep {
 
 export type ConversationState = 
   | 'LANDING'
+  | 'INTERVIEW_NAME_LOCATION'
   | 'INTERVIEW_OCCUPATION'
   | 'INTERVIEW_EXPERIENCE'
   | 'INTERVIEW_TOOLS_ACTIVITIES'
@@ -53,6 +54,21 @@ export type ConversationState =
   | 'READBACK_CONFIRMATION'
   | 'CORRECTION_CLARIFICATION'
   | 'RESULTS_VIEW';
+
+export interface BeneficiaryRecord {
+  id: string;
+  name: string;
+  location: string;
+  trade: string;
+  education: string;
+  experienceYears: number;
+  nsqfLevel: string;
+  matchedScheme: string;
+  matchScore: number;
+  createdAt: string;
+  status: 'Verified' | 'Completed' | 'Pending Enrolment';
+  profile: LivelihoodProfile;
+}
 
 export type MicState = 'IDLE' | 'LISTENING' | 'PROCESSING' | 'RESPONDING';
 

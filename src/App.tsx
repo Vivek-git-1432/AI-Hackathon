@@ -7,10 +7,12 @@ import type {
   AgentNode, 
   AgentNodeId, 
   DialogueTurn, 
-  LivelihoodProfile 
+  LivelihoodProfile,
+  BeneficiaryRecord
 } from './types';
 import { agentPipeline, INITIAL_AGENT_NODES } from './services/agentPipeline';
 import { voiceService } from './services/voiceService';
+import { databaseService } from './services/databaseService';
 import { Navbar } from './components/Navbar';
 import { HeroLanding } from './components/HeroLanding';
 import { AgentWorkflowVisualizer } from './components/AgentWorkflowVisualizer';
@@ -23,6 +25,7 @@ import { Roadmap90Days } from './components/Roadmap90Days';
 import { FieldAssistantMode, type FieldQueueRecord } from './components/FieldAssistantMode';
 import { IvrHelplineMode } from './components/IvrHelplineMode';
 import { HackathonValidatorModal } from './components/HackathonValidatorModal';
+import { BeneficiaryRegistryModal } from './components/BeneficiaryRegistryModal';
 import { ImpactDashboard } from './components/ImpactDashboard';
 import { ApiKeyModal } from './components/ApiKeyModal';
 import { FinalOpportunityBanner } from './components/FinalOpportunityBanner';
@@ -42,6 +45,8 @@ export const App: React.FC = () => {
 
   const [activeMode, setActiveMode] = useState<'voice' | 'field' | 'ivr' | 'dashboard'>('voice');
   const [isValidatorOpen, setIsValidatorOpen] = useState<boolean>(false);
+  const [isRegistryOpen, setIsRegistryOpen] = useState<boolean>(false);
+  const [beneficiaryCount, setBeneficiaryCount] = useState<number>(() => databaseService.getAllBeneficiaries().length);
   const [conversationState, setConversationState] = useState<ConversationState>('LANDING');
   const [micState, setMicState] = useState<MicState>('IDLE');
   const [audioEnabled, setAudioEnabled] = useState<boolean>(true);
@@ -92,6 +97,14 @@ export const App: React.FC = () => {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [history]);
+
+  // Subscribe to beneficiary database count
+  useEffect(() => {
+    const unsubscribe = databaseService.subscribe(() => {
+      setBeneficiaryCount(databaseService.getAllBeneficiaries().length);
+    });
+    return unsubscribe;
+  }, []);
 
   // Initialize Greeting on Mount or Language Switch
   useEffect(() => {
@@ -287,7 +300,18 @@ export const App: React.FC = () => {
       return;
     }
 
-    updateAgentNodeStatus(res.activeNodeId);
+    if (res.nextState === 'RESULTS_VIEW') {
+      // Step sequentially through confirmation_agent -> skill_gap_agent -> program_matching_agent -> coordinator_agent
+      updateAgentNodeStatus('confirmation_agent');
+      await new Promise(r => setTimeout(r, 350));
+      updateAgentNodeStatus('skill_gap_agent');
+      await new Promise(r => setTimeout(r, 400));
+      updateAgentNodeStatus('program_matching_agent');
+      await new Promise(r => setTimeout(r, 400));
+      updateAgentNodeStatus('coordinator_agent');
+    } else {
+      updateAgentNodeStatus(res.activeNodeId);
+    }
     setConversationState(res.nextState);
 
     if (res.updatedProfile) {
@@ -359,6 +383,25 @@ export const App: React.FC = () => {
     handleProcessUserInput(command);
   };
 
+  const handleSelectCandidate = (candidate: BeneficiaryRecord) => {
+    setActiveMode('voice');
+    setProfile(candidate.profile);
+    setConversationState('RESULTS_VIEW');
+    setRightPanelTab('passport');
+    updateAgentNodeStatus('coordinator_agent');
+    setIsRegistryOpen(false);
+
+    // Add brief summary turn to history
+    const loadTurn: DialogueTurn = {
+      id: `turn-load-${Date.now()}`,
+      speaker: 'ai',
+      text: `Loaded candidate profile: ${candidate.name} (${candidate.trade}) - ${candidate.nsqfLevel}`,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      agentNode: 'coordinator_agent'
+    };
+    setHistory(prev => [...prev, loadTurn]);
+  };
+
   const handleStartFieldSession = (name: string, trade: string) => {
     setActiveMode('voice');
     if (name && name.trim()) {
@@ -398,6 +441,8 @@ export const App: React.FC = () => {
         onSelectMode={setActiveMode}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenValidator={() => setIsValidatorOpen(true)}
+        onOpenRegistry={() => setIsRegistryOpen(true)}
+        beneficiaryCount={beneficiaryCount}
         hasApiKey={hasConfiguredKey}
         isListening={micState === 'LISTENING'}
         isSpeaking={micState === 'RESPONDING'}
@@ -439,7 +484,7 @@ export const App: React.FC = () => {
               <HeroLanding
                 currentLanguage={currentLanguage}
                 onStartVoice={() => {
-                  setConversationState('INTERVIEW_OCCUPATION');
+                  setConversationState('INTERVIEW_NAME_LOCATION');
                   handleToggleMic();
                 }}
               />
@@ -703,6 +748,14 @@ export const App: React.FC = () => {
       <HackathonValidatorModal
         isOpen={isValidatorOpen}
         onClose={() => setIsValidatorOpen(false)}
+      />
+
+      {/* Beneficiary Database & Candidate Registry Modal */}
+      <BeneficiaryRegistryModal
+        isOpen={isRegistryOpen}
+        onClose={() => setIsRegistryOpen(false)}
+        currentLanguage={currentLanguage}
+        onSelectCandidate={handleSelectCandidate}
       />
 
       {/* Footer */}

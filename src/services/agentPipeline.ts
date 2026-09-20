@@ -12,20 +12,23 @@ import type {
   AgentReasoningStep
 } from '../types';
 import { getMatchedProgramsForProfile, DEFAULT_90_DAY_ROADMAP } from '../data/programsData';
+import { databaseService } from './databaseService';
 
 export const INITIAL_AGENT_NODES: AgentNode[] = [
-  { id: 'voice_agent', name: 'Voice Agent', icon: '🎙️', role: 'Captures multilingual audio and isolates speech intent', status: 'completed' },
+  { id: 'voice_agent', name: 'Voice & Intake Agent', icon: '🎙️', role: 'Captures multilingual audio & candidate identity', status: 'completed' },
   { id: 'understanding_agent', name: 'Speech Understanding Agent', icon: '📝', role: 'Semantic parsing, filtering & dialect normalization', status: 'pending' },
   { id: 'profile_agent', name: 'Livelihood Profile Agent', icon: '👤', role: 'Constructs structured persona, years, tools & trade context', status: 'pending' },
   { id: 'skill_mapping_agent', name: 'Skill Mapping Agent', icon: '🧠', role: 'Maps informal evidence to NSQF category levels', status: 'pending' },
   { id: 'confirmation_agent', name: 'Confirmation Agent', icon: '✅', role: 'Formulates spoken read-back verification loop', status: 'pending' },
   { id: 'skill_gap_agent', name: 'Skill-Gap Agent', icon: '📚', role: 'Analyzes capability gaps vs aspirational market targets', status: 'pending' },
   { id: 'program_matching_agent', name: 'Program Matching Agent', icon: '🎯', role: 'Ranks government schemes & computes 5-factor match score', status: 'pending' },
-  { id: 'coordinator_agent', name: 'Coordinator Agent', icon: '🤖', role: 'Synthesizes 90-day roadmap and transparent explainability chain', status: 'pending' }
+  { id: 'coordinator_agent', name: 'Coordinator Agent', icon: '🤖', role: 'Synthesizes 90-day roadmap and Kaushal Passport', status: 'pending' }
 ];
 
 export interface CitizenSlots {
   citizenName: string | null;
+  location: string | null;
+  education: string | null;
   occupation: string | null;
   experienceYears: number | null;
   toolsEquipment: string | null;
@@ -144,6 +147,8 @@ export class AgentPipelineService {
 
   private slots: CitizenSlots = {
     citizenName: null,
+    location: null,
+    education: null,
     occupation: null,
     experienceYears: null,
     toolsEquipment: null,
@@ -156,6 +161,22 @@ export class AgentPipelineService {
 
   public getCitizenName(): string | null {
     return this.slots.citizenName;
+  }
+
+  public setLocation(loc: string) {
+    this.slots.location = loc.trim();
+  }
+
+  public getLocation(): string | null {
+    return this.slots.location;
+  }
+
+  public setEducation(edu: string) {
+    this.slots.education = edu.trim();
+  }
+
+  public getEducation(): string | null {
+    return this.slots.education;
   }
 
   constructor() {
@@ -214,6 +235,8 @@ export class AgentPipelineService {
     const prevName = preserveName ? this.slots.citizenName : null;
     this.slots = {
       citizenName: prevName,
+      location: null,
+      education: null,
       occupation: null,
       experienceYears: null,
       toolsEquipment: null,
@@ -229,54 +252,54 @@ export class AgentPipelineService {
     if (cName) {
       switch (lang) {
         case 'kn':
-          text = `ನಮಸ್ಕಾರ ${cName}! ಸಕ್ಷಮ್ ವಾಯ್ಸ್‌ಗೆ ಸುಸ್ವಾಗತ. ನಿಮ್ಮ ಕೌಶಲ್ಯ, ಕೆಲಸ ಅಥವಾ ಅಧ್ಯಯನವನ್ನು ತಿಳಿದುಕೊಂಡು ಅತ್ಯುತ್ತಮ ಸರ್ಕಾರಿ ಯೋಜನೆಗಳನ್ನು ಒದಗಿಸಲು ನಾನು ಇಲ್ಲಿದ್ದೇನೆ. ನೀವು ಪ್ರಸ್ತುತ ಯಾವ ಕೆಲಸ ಅಥವಾ ಅಧ್ಯಯನ ಮಾಡುತ್ತಿದ್ದೀರಿ?`;
-          translation = `Welcome ${cName}! I am Saksham Voice. Tell me about the work, trade, or studies you currently do so I can discover government skilling schemes for you.`;
+          text = `ನಮಸ್ಕಾರ ${cName}! ಸಕ್ಷಮ್ ವಾಯ್ಸ್‌ಗೆ ಸುಸ್ವಾಗತ. ನಿಮ್ಮ ಕೌಶಲ್ಯ ಮತ್ತು ಆಕಾಂಕ್ಷೆಗಳಿಗೆ ಸೂಕ್ತವಾದ ಸರ್ಕಾರಿ ಯೋಜನೆಗಳನ್ನು ಒದಗಿಸಲು ನಾನು ಇಲ್ಲಿದ್ದೇನೆ. ನೀವು ಪ್ರಸ್ತುತ ಯಾವ ಕೆಲಸ, ವೃತ್ತಿ ಅಥವಾ ಅಧ್ಯಯನ ಮಾಡುತ್ತಿದ್ದೀರಿ?`;
+          translation = `Namaste ${cName}! Welcome to Saksham Voice. Tell me about the work, trade, or studies you currently do so I can discover government skilling schemes for you.`;
           break;
         case 'hi':
-          text = `नमस्ते ${cName}! सक्षम वॉइस में आपका स्वागत है। आपके काम और पढ़ाई के आधार पर सरकारी कौशल योजनाएं खोजने में मैं आपकी मदद करूँगा। आप अभी क्या काम या पढ़ाई करते हैं?`;
-          translation = `Welcome ${cName}! What work or studies are you currently doing?`;
+          text = `नमस्ते ${cName}! सक्षम वॉइस में आपका स्वागत है। आपकी आजीविका और कौशल के अनुसार सर्वश्रेष्ठ सरकारी योजनाएं खोजने के लिए, आप वर्तमान में क्या काम या पढ़ाई करते हैं?`;
+          translation = `Namaste ${cName}! Welcome to Saksham Voice. What work, trade, or studies are you currently doing?`;
           break;
         case 'te':
-          text = `నమస్కారం ${cName}! సక్షమ్ వాయిస్‌కు స్వాగతం. మీ నైపుణ్యాలు మరియు పని/చదువు ఆధారంగా ఉత్తమ ప్రభుత్వ పథకాలను కనుగొనడంలో నేను మీకు సహాయం చేస్తాను. మీరు ప్రస్తుతం ఏ పని చేస్తున్నారు?`;
-          translation = `Welcome ${cName}! What work or studies do you currently do?`;
+          text = `నమస్కారం ${cName}! సక్షమ్ వాయిస్‌కు స్వాగతం. మీ నైపుణ్యాలు మరియు పని ఆధారంగా ఉత్తమ ప్రభుత్వ పథకాలను కనుగొనడానికి, మీరు ప్రస్తుతం ఏ పని చేస్తున్నారు?`;
+          translation = `Namaste ${cName}! Welcome to Saksham Voice. What work or studies do you currently do?`;
           break;
         case 'ta':
-          text = `வணக்கம் ${cName}! சக்ஷம் வாய்ஸுக்கு வரவேற்கிறோம். உங்கள் வேலை மற்றும் திறன்களின் அடிப்படையில் சிறந்த அரசு திட்டங்களை கண்டறிய நான் உதவுகிறேன். தற்போது நீங்கள் என்ன செய்கிறீர்கள்?`;
-          translation = `Welcome ${cName}! What work or studies do you currently do?`;
+          text = `வணக்கம் ${cName}! சக்ஷம் வாய்ஸுக்கு வரவேற்கிறோம். உங்கள் வேலை மற்றும் திறன்களின் அடிப்படையில் சிறந்த அரசு திட்டங்களை கண்டறிய, தற்போது நீங்கள் என்ன செய்கிறீர்கள்?`;
+          translation = `Namaste ${cName}! Welcome to Saksham Voice. What work or studies do you currently do?`;
           break;
         case 'mr':
-          text = `नमस्कार ${cName}! सक्षम व्हॉईसमध्ये आपले स्वागत आहे. आपल्या कौशल्य आणि अभ्यासाच्या आधारे सर्वोत्तम सरकारी योजना शोधण्यात मी मदत करेन. आपण सध्या कोणते काम करता?`;
-          translation = `Welcome ${cName}! What work or studies do you currently do?`;
+          text = `नमस्कार ${cName}! सक्षम व्हॉईसमध्ये आपले स्वागत आहे. आपल्या कौशल्य आणि अभ्यासाच्या आधारे सर्वोत्तम सरकारी योजना शोधण्यासाठी, आपण सध्या कोणते काम करता?`;
+          translation = `Namaste ${cName}! Welcome to Saksham Voice. What work or studies do you currently do?`;
           break;
         default:
-          text = `Hello ${cName} and Welcome to Saksham Voice! Tell me about the work, trade, or studies you currently do so I can discover the best government skilling programs for you.`;
-          translation = `Hello ${cName} and Welcome to Saksham Voice! Tell me about the work, trade, or studies you currently do so I can discover the best government skilling programs for you.`;
+          text = `Namaste ${cName} and Welcome to Saksham Voice! Tell me about the work, trade, or studies you currently do so I can discover the best government skilling programs for you.`;
+          translation = `Namaste ${cName} and Welcome to Saksham Voice! Tell me about the work, trade, or studies you currently do so I can discover the best government skilling programs for you.`;
       }
     } else {
       switch (lang) {
         case 'kn':
-          text = 'ನಮಸ್ಕಾರ! ಸಕ್ಷಮ್ ವಾಯ್ಸ್‌ಗೆ ಸುಸ್ವಾಗತ. ನಿಮ್ಮ ಕೆಲಸ, ಕೌಶಲ್ಯ ಮತ್ತು ಅನುಭವವನ್ನು ಅರ್ಥಮಾಡಿಕೊಂಡು ಸರ್ಕಾರಿ ಕೌಶಲ್ಯ ಯೋಜನೆಗಳನ್ನು ಪಡೆಯಲು ನಾನು ನಿಮಗೆ ಸಹಾಯ ಮಾಡುತ್ತೇನೆ. ನೀವು ಪ್ರಸ್ತುತ ಯಾವ ಕೆಲಸ ಮಾಡುತ್ತಿದ್ದೀರಿ?';
-          translation = 'Welcome! I am Saksham Voice. I will help you discover government skilling programs based on your skills. What work do you currently do?';
+          text = 'ನಮಸ್ಕಾರ! ಸಕ್ಷಮ್ ವಾಯ್ಸ್‌ಗೆ ಸುಸ್ವಾಗತ. ನಾನು ಭಾರತ ಸರ್ಕಾರದ ಕೌಶಲ್ಯ ಮತ್ತು ಆಜೀವಿಕಾ ಯೋಜನೆಗಳ ನಿಮ್ಮ AI ಮಾರ್ಗದರ್ಶಿ. ದಯವಿಟ್ಟು ನಿಮ್ಮ ಹೆಸರು ಮತ್ತು ನೀವು ಯಾವ ಊರಿನವರು ಎಂದು ತಿಳಿಸುವಿರಾ?';
+          translation = 'Namaste and Welcome to Saksham Voice! I am your personal AI skilling & livelihood counselor. May I please know your name and which city or district you are from?';
           break;
         case 'hi':
-          text = 'नमस्ते! सक्षम वॉइस में आपका स्वागत है। आपके काम और कौशल के आधार पर सरकारी कौशल योजनाओं को खोजने में मैं आपकी मदद करूँगा। आप वर्तमान में क्या काम करते हैं?';
-          translation = 'Welcome! I am Saksham Voice. I will help you discover government skilling schemes. What work do you currently do?';
+          text = 'नमस्ते! सक्षम वॉइस में आपका स्वागत है। मैं आपका व्यक्तिगत AI कौशल व आजीविका सलाहकार हूँ। कृपया अपना नाम और शहर बताएं?';
+          translation = 'Namaste and Welcome to Saksham Voice! I am your personal AI skilling & livelihood counselor. May I please know your name and city?';
           break;
         case 'te':
-          text = 'నమస్కారం! సಕ್ಷమ్ వాయిస్‌కు స్వాగతం. మీ నైపుణ్యాలు మరియు పని ఆధారంగా ఉత్తమ ప్రభుత్వ నైపుణ್ಯ పథకాలను కనుగొనడంలో నేను మీకు సహాయం చేస్తాను. మీరు ప్రస్తుతం ఏ పని చేస్తున్నారు?';
-          translation = 'Welcome! I am Saksham Voice. What work do you currently do?';
+          text = 'నమస్కారం! సక్షమ్ వాయిస్‌కు స్వాగతం. మీ నైపుణ్యాల ఆధారంగా ప్రభుత్వ పథకాలను అందించే మీ AI గైడ్ నేను. దయచేసి మీ పేరు మరియు మీరు ఏ ఊరి వారో చెబుతారా?';
+          translation = 'Namaste and Welcome to Saksham Voice! May I please know your name and city?';
           break;
         case 'ta':
-          text = 'வணக்கம்! சக்ஷம் வாய்ஸுக்கு வரவேற்கிறோம். உங்கள் வேலை மற்றும் திறன்களின் அடிப்படையில் சிறந்த அரசு திறன் திட்டங்களை கண்டறிய நான் உதவுகிறேன். தற்போது நீங்கள் என்ன வேலை செய்கிறீர்கள்?';
-          translation = 'Welcome! I am Saksham Voice. What work do you currently do?';
+          text = 'வணக்கம்! சக்ஷம் வாய்ஸுக்கு வரவேற்கிறோம். நான் உங்கள் தனிப்பட்ட AI வழிகாட்டி. தயவுசெய்து உங்கள் பெயர் மற்றும் உங்கள் ஊர் என்னவென்று கூறுங்கள்?';
+          translation = 'Namaste and Welcome to Saksham Voice! May I please know your name and location?';
           break;
         case 'mr':
-          text = 'नमस्कार! सक्षम व्हॉईसमध्ये आपले स्वागत आहे. आपल्या कौशल्य आणि अनुभवाच्या आधारे सर्वोत्तम सरकारी कौशल्य योजना शोधण्यात मी मदत करेन. आपण सध्या कोणते काम करता?';
-          translation = 'Welcome! I am Saksham Voice. What work do you currently do?';
+          text = 'नमस्कार! सक्षम व्हॉईसमध्ये आपले स्वागत आहे. मी आपला वैयक्तिक AI कौशल्य सल्लागार आहे. कृपया आपले नाव आणि गाव/शहर सांगा?';
+          translation = 'Namaste and Welcome to Saksham Voice! Please tell me your name and city/district?';
           break;
         default:
-          text = 'Hello and Welcome! I am Saksham Voice. Tell me about the work or studies you currently do so I can discover the best government skilling programs for you.';
-          translation = 'Hello and Welcome! I am Saksham Voice. Tell me about the work or studies you currently do so I can discover the best government skilling programs for you.';
+          text = 'Namaste and Welcome to Saksham Voice! I am your personal AI livelihood & skilling counselor. May I please know your name and which city or district you are from?';
+          translation = 'Namaste and Welcome to Saksham Voice! I am your personal AI livelihood & skilling counselor. May I please know your name and which city or district you are from?';
       }
     }
 
@@ -558,55 +581,55 @@ export class AgentPipelineService {
   ): Promise<AgentPipelineResponse | null> {
     const ai = new GoogleGenAI({ apiKey: this.geminiKey });
 
+    const cName = this.slots.citizenName || '';
+
     const systemInstruction = `
-You are SAKSHAM VOICE (ಸಕ್ಷಮ್ ವಾಯ್ಸ್), an intelligent conversational AI agent for livelihood skill mapping and government skilling schemes across ALL Indian sectors (Civil Services, Engineering, Event Management, Healthcare, Tech, Power, Retail, Agriculture, Crafts, etc.).
+You are SAKSHAM VOICE (ಸಕ್ಷಮ್ ವಾಯ್ಸ್), an empathetic, polite, highly intelligent conversational AI counselor for livelihood skill mapping and government welfare/skilling schemes across India.
 Target Language: "${lang}". Respond strictly in language "${lang}".
 
-CRITICAL MULTI-TURN CONVERSATIONAL PROBING RULES:
-1. GREETINGS & INTRODUCTIONS:
-   - If citizen says "Good morning", "Hello", "Hi", "Namaskara", "Namaste", greet them back politely, introduce yourself as Saksham Voice, and ask what trade or work they currently do.
-   - NEVER assign greetings as an occupation!
+CRITICAL HUMAN-LIKE CONVERSATIONAL RULES:
+1. CITIZEN NAME & WARM ADDRESS:
+   - If the citizen's name is known (e.g. "${cName}"), ALWAYS address them respectfully and warmly by their name (e.g., "Namaste ${cName}!", "ನಮಸ್ಕಾರ ${cName}!", "नमस्ते ${cName}!").
+   - If citizen introduces themselves (e.g., "I am Vijay", "My name is Vivek from Bengaluru"), extract their name and location, greet them warmly by name, and ask what work, trade, or studies they currently do.
 
-2. IDENTITY QUESTIONS:
-   - If citizen asks "What is your name?" or "Who are you?": Explain you are Saksham Voice and ask what work they do.
+2. GREETINGS & INTRODUCTIONS:
+   - If citizen says "Good morning", "Hello", "Hi", "Namaskara", "Namaste", greet them back politely as Saksham Voice and inquire about their name or what work they do.
+   - NEVER misclassify greetings or pleasantries as an occupation!
 
-3. ACCURATE OCCUPATION & ASPIRATION EXTRACTION:
-   - Extract the EXACT trade or background mentioned by the user (e.g. "Software Engineer", "Engineering Student & Event Management", "Civil Services Aspirant", "Electrician", "Tailor", "Farmer", "Nurse", etc.).
-   - Extract numeric experience years if mentioned.
-   - Extract tools/equipment/languages only if explicitly mentioned in the user's conversation.
-   - Extract future career aspiration only if explicitly mentioned in the user's conversation.
-
-4. STRICT MULTI-TURN PROTOCOL (DO NOT RUSH OR SKIP SLOTS):
-   You must systematically collect all 4 essential profile slots before finalizing:
-   - Slot 1: Primary Occupation
-   - Slot 2: Experience Duration (Years)
-   - Slot 3: Tools, Technologies, Equipment, or Frameworks used daily
-   - Slot 4: Future Career Aspirations & Skilling Goals
+3. STRICT MULTI-TURN PROBING PROTOCOL (ONE STEP AT A TIME):
+   Systematically collect essential profile slots before finalizing:
+   - Name & Location
+   - Primary Occupation / Studies / Trade
+   - Experience Duration (Years)
+   - Tools, Technologies, Equipment used daily
+   - Future Career Aspirations & Skilling Goals
 
    RULES FOR PROBING:
-   - If user says ONLY their job and experience (e.g. "I am a software engineer and I have 10 years of experience"):
+   - If only occupation & experience are given (e.g. "I am a software engineer with 10 years experience"):
      * extractedOccupation = "Software Engineer"
      * extractedExperienceYears = 10
-     * extractedTools = null (User has NOT specified their tools/frameworks yet)
-     * extractedAspiration = null (User has NOT specified career aspirations yet)
+     * extractedTools = null
+     * extractedAspiration = null
      * isReadyForReadback = false
-     * spokenText: Ask a natural follow-up question probing what specific programming languages, frameworks, cloud systems, or developer tools they primarily work with daily!
+     * spokenText: Acknowledge their role warmly by name and ask a natural follow-up probing what specific tools, languages, frameworks, or equipment they work with daily!
    - If tools are known but aspiration is missing:
      * isReadyForReadback = false
-     * spokenText: Ask about their future career goals, certifications, or leadership aspirations.
-   - ONLY when ALL 4 SLOTS (Occupation, Experience, Tools, Aspiration) ARE KNOWN:
+     * spokenText: Ask about their career aspirations, certifications, or leadership goals.
+   - ONLY when ALL SLOTS (Occupation, Experience, Tools, Aspiration) ARE KNOWN:
      * Set "isReadyForReadback": true
-     * spokenText: Formulate a clear spoken read-back summarizing all 4 points and asking for explicit confirmation (YES/NO).
+     * spokenText: Formulate a clear, polite spoken read-back summarizing all points and asking for explicit confirmation (YES/NO).
 
 Respond in strict JSON with schema:
 {
-  "intent": "GREETING" | "IDENTITY" | "OFF_TOPIC" | "CLARIFICATION" | "SLOT_UPDATE" | "READBACK",
+  "intent": "GREETING" | "IDENTITY" | "NAME_LOCATION" | "SLOT_UPDATE" | "READBACK",
+  "extractedCitizenName": string or null,
+  "extractedLocation": string or null,
   "extractedOccupation": string or null,
   "extractedExperienceYears": number or null,
   "extractedTools": string or null,
   "extractedAspiration": string or null,
   "isReadyForReadback": boolean,
-  "spokenText": string (must be in "${lang}"),
+  "spokenText": string (in "${lang}"),
   "englishTranslation": string,
   "reasoningObservation": string,
   "reasoningDecision": string,
@@ -640,6 +663,12 @@ Current Known Slots: ${JSON.stringify(this.slots)}
 
         const parsed = JSON.parse(response.text?.trim() || '{}');
 
+        if (parsed.extractedCitizenName && !this.slots.citizenName) {
+          this.slots.citizenName = parsed.extractedCitizenName;
+        }
+        if (parsed.extractedLocation && !this.slots.location) {
+          this.slots.location = parsed.extractedLocation;
+        }
         if (parsed.extractedOccupation) this.slots.occupation = parsed.extractedOccupation;
         if (parsed.extractedExperienceYears !== undefined && parsed.extractedExperienceYears !== null) {
           this.slots.experienceYears = parsed.extractedExperienceYears;
@@ -654,13 +683,13 @@ Current Known Slots: ${JSON.stringify(this.slots)}
           this.slots.aspiration
         );
 
-        // Strict: Only trigger read-back if ALL 4 slots are filled!
+        // Strict: Only trigger read-back if ALL slots are filled!
         const isReady = isAllSlotsFilled && Boolean(parsed.isReadyForReadback);
 
         const reasoningStep: AgentReasoningStep = {
           step: `Live Gemini (${model}) AI Reasoning`,
-          observation: parsed.reasoningObservation || `Analyzed intent: ${parsed.intent || 'CONVERSATION'}`,
-          deduplicationCheck: `Slots: Occupation=${this.slots.occupation || 'missing'}, Exp=${this.slots.experienceYears ?? 'missing'}, Tools=${this.slots.toolsEquipment || 'missing'}, Asp=${this.slots.aspiration || 'missing'}`,
+          observation: parsed.reasoningObservation || `Candidate ${this.slots.citizenName || 'Applicant'}: Analyzed intent: ${parsed.intent || 'CONVERSATION'}`,
+          deduplicationCheck: `Slots: Name=${this.slots.citizenName || 'missing'}, Occ=${this.slots.occupation || 'missing'}, Exp=${this.slots.experienceYears ?? 'missing'}, Tools=${this.slots.toolsEquipment || 'missing'}, Asp=${this.slots.aspiration || 'missing'}`,
           decision: parsed.reasoningDecision || (isReady ? 'Formulate Spoken Readback' : 'Multi-Turn Contextual Probing'),
           confidence: parsed.confidence || 96
         };
@@ -700,12 +729,14 @@ Current Known Slots: ${JSON.stringify(this.slots)}
     lang: SupportedLanguage,
     history: DialogueTurn[]
   ): Promise<AgentPipelineResponse | null> {
-    const systemInstruction = `You are SAKSHAM VOICE, an intelligent conversational AI agent in language "${lang}".
+    const cName = this.slots.citizenName || '';
+    const systemInstruction = `You are SAKSHAM VOICE, an empathetic and polite conversational AI counselor in language "${lang}".
 Rules:
-1. Do NOT treat greetings ("good morning", "hello") as an occupation.
-2. If asked about your identity or name, explain you are Saksham Voice.
-3. Extract occupation, experienceYears, toolsEquipment, and aspiration accurately without forcing default agriculture assumptions.
-4. Respond in strict JSON format with keys: intent, extractedOccupation, extractedExperienceYears, extractedTools, extractedAspiration, isReadyForReadback, spokenText (in "${lang}"), englishTranslation, reasoningObservation, reasoningDecision, confidence.`;
+1. If the citizen's name is known ("${cName}"), ALWAYS address them respectfully by their name in every turn (e.g. "Namaste ${cName}!", "नमस्ते ${cName}!").
+2. Do NOT treat greetings ("good morning", "hello") as an occupation.
+3. If asked about identity, explain you are Saksham Voice.
+4. Extract citizenName, location, occupation, experienceYears, toolsEquipment, and aspiration accurately without forcing defaults.
+5. Respond in strict JSON format with keys: intent, extractedCitizenName, extractedLocation, extractedOccupation, extractedExperienceYears, extractedTools, extractedAspiration, isReadyForReadback, spokenText (in "${lang}"), englishTranslation, reasoningObservation, reasoningDecision, confidence.`;
 
     const messages = [
       { role: 'system', content: systemInstruction },
@@ -734,6 +765,8 @@ Rules:
     if (!content) return null;
 
     const parsed = JSON.parse(content);
+    if (parsed.extractedCitizenName && !this.slots.citizenName) this.slots.citizenName = parsed.extractedCitizenName;
+    if (parsed.extractedLocation && !this.slots.location) this.slots.location = parsed.extractedLocation;
     if (parsed.extractedOccupation) this.slots.occupation = parsed.extractedOccupation;
     if (parsed.extractedExperienceYears !== undefined && parsed.extractedExperienceYears !== null) {
       this.slots.experienceYears = parsed.extractedExperienceYears;
@@ -754,8 +787,8 @@ Rules:
       isReadbackPrompt: isReady,
       reasoningStep: {
         step: `${model.toUpperCase()} Cloud Agent`,
-        observation: `Extracted intent from: "${userInput}"`,
-        deduplicationCheck: `Slots status: Occ=${this.slots.occupation || 'none'}, Exp=${this.slots.experienceYears ?? 'none'}`,
+        observation: `Extracted intent for ${this.slots.citizenName || 'Applicant'}: "${userInput}"`,
+        deduplicationCheck: `Slots: Occ=${this.slots.occupation || 'none'}, Exp=${this.slots.experienceYears ?? 'none'}`,
         decision: isReady ? 'Formulate Readback' : 'Contextual Next Slot',
         confidence: 94
       }
@@ -764,35 +797,52 @@ Rules:
 
   private processContextualEngine(userInput: string, lang: SupportedLanguage): AgentPipelineResponse {
     const textLower = userInput.toLowerCase().trim();
+    const cName = this.slots.citizenName;
 
     // 1. Check for Greetings (e.g. "Good morning", "Hello", "Namaskara")
     if (this.isGreeting(textLower)) {
       let greetResp = '';
       let trans = '';
-      switch (lang) {
-        case 'kn':
-          greetResp = 'ಶುಭೋದಯ ಮತ್ತು ನಮಸ್ಕಾರ! ಸಕ್ಷಮ್ ವಾಯ್ಸ್‌ಗೆ ಸುಸ್ವಾಗತ. ನಿಮ್ಮ ಕೌಶಲ್ಯಕ್ಕೆ ಸೂಕ್ತವಾದ ಸರ್ಕಾರಿ ಯೋಜನೆಗಳನ್ನು ಪಡೆಯಲು, ನೀವು ಪ್ರಸ್ತುತ ಯಾವ ಕೆಲಸ ಅಥವಾ ವೃತ್ತಿ ಮಾಡುತ್ತಿದ್ದೀರಿ ಎಂದು ತಿಳಿಸಿ.';
-          trans = 'Good morning and welcome! To discover the best government skilling schemes for you, please tell me what trade or work you currently do.';
-          break;
-        case 'hi':
-          greetResp = 'शुभ प्रभात और नमस्ते! सक्षम वॉइस में आपका स्वागत है। आपके लिए सही सरकारी योजनाएं खोजने के लिए, कृपया बताएं कि आप अभी क्या काम करते हैं?';
-          trans = 'Good morning and welcome! Please tell me what trade or work you currently do.';
-          break;
-        default:
-          greetResp = 'Good morning and welcome! I am Saksham Voice. To help you discover the best government skilling programs, please tell me what kind of work or trade you currently do.';
-          trans = 'Good morning and welcome! Please tell me what kind of work or trade you currently do.';
+      if (cName) {
+        switch (lang) {
+          case 'kn':
+            greetResp = `ಶುಭೋದಯ ಮತ್ತು ನಮಸ್ಕಾರ ${cName}! ನಿಮ್ಮ ಕೌಶಲ್ಯಕ್ಕೆ ಸೂಕ್ತವಾದ ಸರ್ಕಾರಿ ಯೋಜನೆಗಳನ್ನು ಪಡೆಯಲು, ನೀವು ಪ್ರಸ್ತುತ ಯಾವ ಕೆಲಸ, ವೃತ್ತಿ ಅಥವಾ ಅಧ್ಯಯನ ಮಾಡುತ್ತಿದ್ದೀರಿ ಎಂದು ತಿಳಿಸಿ.`;
+            trans = `Good morning and Namaste ${cName}! To discover the best government skilling schemes for you, please tell me what trade or studies you currently do.`;
+            break;
+          case 'hi':
+            greetResp = `शुभ प्रभात और नमस्ते ${cName}! आपके लिए सही सरकारी योजनाएं खोजने के लिए, कृपया बताएं कि आप अभी क्या काम या पढ़ाई करते हैं?`;
+            trans = `Good morning and Namaste ${cName}! Please tell me what trade or studies you currently do.`;
+            break;
+          default:
+            greetResp = `Good morning and Namaste ${cName}! To help you discover the best government skilling programs, please tell me what kind of work, trade, or studies you currently do.`;
+            trans = `Good morning and Namaste ${cName}! Please tell me what work, trade, or studies you currently do.`;
+        }
+      } else {
+        switch (lang) {
+          case 'kn':
+            greetResp = 'ಶುಭೋದಯ ಮತ್ತು ನಮಸ್ಕಾರ! ಸಕ್ಷಮ್ ವಾಯ್ಸ್‌ಗೆ ಸುಸ್ವಾಗತ. ದಯವಿಟ್ಟು ನಿಮ್ಮ ಹೆಸರು ಮತ್ತು ನೀವು ಯಾವ ಊರಿನವರು ಎಂದು ತಿಳಿಸುವಿರಾ?';
+            trans = 'Good morning and Welcome to Saksham Voice! May I please know your name and where you are from?';
+            break;
+          case 'hi':
+            greetResp = 'शुभ प्रभात और नमस्ते! सक्षम वॉइस में आपका स्वागत है। कृपया अपना नाम और शहर बताएं?';
+            trans = 'Good morning and Welcome to Saksham Voice! May I please know your name and city?';
+            break;
+          default:
+            greetResp = 'Good morning and Welcome to Saksham Voice! I am your personal AI skilling counselor. May I please know your name and which city or district you are from?';
+            trans = 'Good morning and Welcome to Saksham Voice! May I please know your name and city?';
+        }
       }
 
       return {
         spokenText: greetResp,
         englishTranslation: trans,
-        nextState: 'INTERVIEW_OCCUPATION',
+        nextState: cName ? 'INTERVIEW_OCCUPATION' : 'INTERVIEW_NAME_LOCATION',
         activeNodeId: 'voice_agent',
         reasoningStep: {
           step: 'Conversational Greeting Filter',
           observation: `Recognized pleasantry/greeting: "${userInput}"`,
           deduplicationCheck: 'Preserved empty occupation slot (did not misclassify greeting as trade)',
-          decision: 'Greet citizen warmly and ask for primary trade/occupation',
+          decision: cName ? `Greet ${cName} warmly and ask for trade` : 'Greet warmly and ask for candidate name',
           confidence: 99
         }
       };
@@ -804,16 +854,16 @@ Rules:
       let trans = '';
       switch (lang) {
         case 'kn':
-          identResp = 'ನನ್ನ ಹೆಸರು ಸಕ್ಷಮ್ ವಾಯ್ಸ್ (Saksham Voice). ನಾನು ಗ್ರಾಮೀಣ ಮತ್ತು ಅಸಂಘಟಿತ ವಲಯದ ಕಾರ್ಮಿಕರ ಕೌಶಲ್ಯಗಳನ್ನು ಗುರುತಿಸಿ ಸರ್ಕಾರಿ ಯೋಜನೆಗಳನ್ನು ಒದಗಿಸುವ ಕೃತಕ ಬುದ್ಧಿಮತ್ತೆ ಸಹಾಯಕ. ನೀವು ಯಾವ ಕೆಲಸ ಮಾಡುತ್ತೀರಿ?';
-          trans = 'My name is Saksham Voice. I am an AI assistant that maps workers’ practical skills and connects them with government skilling schemes. What work do you do?';
+          identResp = 'ನನ್ನ ಹೆಸರು ಸಕ್ಷಮ್ ವಾಯ್ಸ್ (Saksham Voice). ನಾನು ಗ್ರಾಮೀಣ ಮತ್ತು ವಿದ್ಯಾರ್ಥಿ/ಕಾರ್ಮಿಕರ ಕೌಶಲ್ಯಗಳನ್ನು ಗುರುತಿಸಿ ಸರ್ಕಾರಿ ಯೋಜನೆಗಳನ್ನು ಒದಗಿಸುವ ಕೃತಕ ಬುದ್ಧಿಮತ್ತೆ ಸಹಾಯಕ. ನಿಮ್ಮ ಹೆಸರೇನು ಮತ್ತು ನೀವು ಯಾವ ಕೆಲಸ ಮಾಡುತ್ತೀರಿ?';
+          trans = 'My name is Saksham Voice. I am an AI assistant that maps practical skills and connects you with government skilling schemes. What is your name and what work do you do?';
           break;
         case 'hi':
-          identResp = 'मेरा नाम सक्षम वॉइस (Saksham Voice) है। मैं आपके कौशल और काम को समझकर सही सरकारी प्रशिक्षण योजनाओं से जोड़ने वाला एआई एजेंट हूँ। आप क्या काम करते हैं?';
-          trans = 'My name is Saksham Voice. I help connect your skills with government training schemes. What work do you do?';
+          identResp = 'मेरा नाम सक्षम वॉइस (Saksham Voice) है। मैं आपके कौशल और काम को समझकर सही सरकारी प्रशिक्षण योजनाओं से जोड़ने वाला एआई एजेंट हूँ। आपका नाम क्या है और आप क्या काम करते हैं?';
+          trans = 'My name is Saksham Voice. I help connect your skills with government training schemes. What is your name and work?';
           break;
         default:
-          identResp = 'My name is Saksham Voice. I am an Agentic AI system built to recognize your practical skills and match you with government skilling programs and certifications. What work do you currently do?';
-          trans = 'My name is Saksham Voice. What work do you currently do?';
+          identResp = 'My name is Saksham Voice. I am an Agentic AI counselor built to recognize your practical skills and match you with government skilling programs. May I know your name and what work or studies you do?';
+          trans = 'My name is Saksham Voice. May I know your name and work?';
       }
 
       return {
@@ -825,19 +875,35 @@ Rules:
           step: 'Persona Identity Response',
           observation: 'Citizen inquired about AI identity and name',
           deduplicationCheck: 'Answered persona question clearly without advancing empty slots',
-          decision: 'Explain Saksham Voice role and gently prompt for trade',
+          decision: 'Explain Saksham Voice role and gently prompt for name/trade',
           confidence: 98
         }
       };
     }
 
-    // 3. Extract Numeric Experience Years if present
+    // 3. Extract Name & Location if detected
+    const foundName = this.detectName(userInput);
+    if (foundName && !this.slots.citizenName) {
+      this.slots.citizenName = foundName;
+    }
+
+    const foundLoc = this.detectLocation(userInput);
+    if (foundLoc && !this.slots.location) {
+      this.slots.location = foundLoc;
+    }
+
+    const foundEdu = this.detectEducation(userInput);
+    if (foundEdu && !this.slots.education) {
+      this.slots.education = foundEdu;
+    }
+
+    // 4. Extract Numeric Experience Years if present
     const yearsFound = this.extractNumericYears(userInput);
     if (yearsFound !== null) {
       this.slots.experienceYears = yearsFound;
     }
 
-    // 4. Extract Occupation & Aspirations dynamically
+    // 5. Extract Occupation & Aspirations dynamically
     const detectedOcc = this.detectOccupation(userInput);
     if (detectedOcc) {
       this.slots.occupation = detectedOcc;
@@ -853,22 +919,59 @@ Rules:
       this.slots.aspiration = detectedAspiration;
     }
 
+    const activeName = this.slots.citizenName;
+
+    // If Name was just provided and occupation is still missing:
+    if (activeName && !this.slots.occupation) {
+      let welcomeMsg = '';
+      let welcomeTrans = '';
+
+      switch (lang) {
+        case 'kn':
+          welcomeMsg = `ನಮಸ್ಕಾರ ${activeName}! ನಿಮ್ಮೊಂದಿಗೆ ಮಾತನಾಡಲು ಸಂತೋಷವಾಗಿದೆ. ನೀವು ಪ್ರಸ್ತುತ ಯಾವ ಕೆಲಸ, ವೃತ್ತಿ ಅಥವಾ ಅಧ್ಯಯನ ಮಾಡುತ್ತಿದ್ದೀರಿ?`;
+          welcomeTrans = `Namaste ${activeName}! It is a pleasure to speak with you. Tell me about the work, trade, or studies you currently do.`;
+          break;
+        case 'hi':
+          welcomeMsg = `नमस्ते ${activeName}! आपसे बात करके बहुत खुशी हुई। आप वर्तमान में क्या काम, व्यवसाय या पढ़ाई करते हैं?`;
+          welcomeTrans = `Namaste ${activeName}! Great to speak with you. What work, trade, or studies do you currently do?`;
+          break;
+        default:
+          welcomeMsg = `Namaste ${activeName}! It is a pleasure to meet you. Tell me about the work, trade, or studies you currently do so I can discover the best government skilling programs for you.`;
+          welcomeTrans = `Namaste ${activeName}! Tell me about the work, trade, or studies you currently do.`;
+      }
+
+      return {
+        spokenText: welcomeMsg,
+        englishTranslation: welcomeTrans,
+        nextState: 'INTERVIEW_OCCUPATION',
+        activeNodeId: 'understanding_agent',
+        reasoningStep: {
+          step: 'Candidate Name Acknowledgement',
+          observation: `Locked candidate name: "${activeName}"`,
+          deduplicationCheck: 'Acknowledged candidate warmly by name, prompting for occupation/field',
+          decision: `Address ${activeName} and probe for primary trade`,
+          confidence: 99
+        }
+      };
+    }
+
     // If occupation is still unknown and user provided generic noise, ask clarification
     if (!this.slots.occupation) {
       let clarifyMsg = '';
       let trans = '';
+      const prefix = activeName ? `${activeName}, ` : '';
       switch (lang) {
         case 'kn':
-          clarifyMsg = 'ದಯವಿಟ್ಟು ನಿಮ್ಮ ನಿರ್ದಿಷ್ಟ ವೃತ್ತಿ, ಅಧ್ಯಯನ ಅಥವಾ ಕೆಲಸವನ್ನು ತಿಳಿಸಿ (ಉದಾ: ಇಂಜಿನಿಯರಿಂಗ್, ಈವೆಂಟ್ ಮ್ಯಾನೇಜ್‌ಮೆಂಟ್, ಸಿವಿಲ್ ಸರ್ವೀಸಸ್, ಸಾಫ್ಟ್‌ವೇರ್, ಎಲೆಕ್ಟ್ರಿಷಿಯನ್, ಕೃಷಿ, ಇತ್ಯಾದಿ).';
-          trans = 'Please tell me your occupation or field (e.g. Engineering, Event Management, Civil Services, Software, Electrical, Farming).';
+          clarifyMsg = `${prefix}ದಯವಿಟ್ಟು ನಿಮ್ಮ ನಿರ್ದಿಷ್ಟ ವೃತ್ತಿ, ಅಧ್ಯಯನ ಅಥವಾ ಕೆಲಸವನ್ನು ತಿಳಿಸಿ (ಉದಾ: ಇಂಜಿನಿಯರಿಂಗ್, ಈವೆಂಟ್ ಮ್ಯಾನೇಜ್‌ಮೆಂಟ್, ಸಿವಿಲ್ ಸರ್ವೀಸಸ್, ಸಾಫ್ಟ್‌ವೇರ್, ಎಲೆಕ್ಟ್ರಿಷಿಯನ್, ಕೃಷಿ, ಇತ್ಯಾದಿ).`;
+          trans = `${prefix}Please tell me your occupation or field (e.g. Engineering, Event Management, Civil Services, Software, Electrical, Farming).`;
           break;
         case 'hi':
-          clarifyMsg = 'कृपया अपने काम, पढ़ाई या व्यवसाय का नाम बताएं (जैसे: इंजीनियरिंग, इवेंट मैनेजमेंट, सिविल सेवा, सॉफ्टवेयर, इलेक्ट्रीशियन, आदि)।';
-          trans = 'Please specify your occupation or field.';
+          clarifyMsg = `${prefix}कृपया अपने काम, पढ़ाई या व्यवसाय का नाम बताएं (जैसे: इंजीनियरिंग, इवेंट मैनेजमेंट, सिविल सेवा, सॉफ्टवेयर, इलेक्ट्रीशियन, आदि)।`;
+          trans = `${prefix}Please specify your occupation or field.`;
           break;
         default:
-          clarifyMsg = 'Could you please share your specific occupation, studies, or trade (for example: Engineering, Event Management, Civil Services, Software, Electrical, Tailoring, or Farming)?';
-          trans = 'Could you please share your specific occupation, studies, or trade?';
+          clarifyMsg = `${prefix}could you please share your specific occupation, studies, or trade (for example: Engineering, Event Management, Civil Services, Software, Electrical, Tailoring, or Farming)?`;
+          trans = `${prefix}could you please share your specific occupation, studies, or trade?`;
       }
 
       return {
@@ -891,19 +994,20 @@ Rules:
       const occ = this.slots.occupation;
       let prompt = '';
       let trans = '';
+      const prefix = activeName ? `${activeName}, ` : '';
 
       switch (lang) {
         case 'kn':
-          prompt = `ಅದ್ಭುತ! ನೀವು "${occ}" ಕ್ಷೇತ್ರದಲ್ಲಿ ಎಷ್ಟು ಸಮಯ ಅಥವಾ ವರ್ಷಗಳಿಂದ ತೊಡಗಿಸಿಕೊಂಡಿದ್ದೀರಿ?`;
-          trans = `Great! How many years of experience or practice do you have in ${occ}?`;
+          prompt = `ಅದ್ಭುತ ${prefix}! ನೀವು "${occ}" ಕ್ಷೇತ್ರದಲ್ಲಿ ಎಷ್ಟು ಸಮಯ ಅಥವಾ ವರ್ಷಗಳಿಂದ ತೊಡಗಿಸಿಕೊಂಡಿದ್ದೀರಿ?`;
+          trans = `Great ${prefix}! How many years of experience or practice do you have in ${occ}?`;
           break;
         case 'hi':
-          prompt = `बहुत अच्छा! आप "${occ}" में कितने समय या सालों से जुड़े हुए हैं?`;
-          trans = `Great! How many years of experience do you have in ${occ}?`;
+          prompt = `बहुत अच्छा ${prefix}! आप "${occ}" में कितने समय या सालों से जुड़े हुए हैं?`;
+          trans = `Great ${prefix}! How many years of experience do you have in ${occ}?`;
           break;
         default:
-          prompt = `Great! How many years of experience or practice do you have in ${occ}?`;
-          trans = `Great! How many years of experience or practice do you have in ${occ}?`;
+          prompt = `Great ${prefix}! How many years of experience or practice do you have in ${occ}?`;
+          trans = `Great ${prefix}! How many years of experience or practice do you have in ${occ}?`;
       }
 
       return {
@@ -913,7 +1017,7 @@ Rules:
         activeNodeId: 'profile_agent',
         reasoningStep: {
           step: 'Experience Duration Probing',
-          observation: `Locked Occupation: "${this.slots.occupation}". Probing tenure.`,
+          observation: `Locked Occupation: "${this.slots.occupation}". Probing tenure for ${activeName || 'Citizen'}.`,
           deduplicationCheck: 'Occupation is confirmed. Prompting experience tenure.',
           decision: 'Ask how many years they have practiced their craft or studies',
           confidence: 96
@@ -925,19 +1029,20 @@ Rules:
     if (this.slots.toolsEquipment === null) {
       let prompt = '';
       let trans = '';
+      const prefix = activeName ? `${activeName}, ` : '';
 
       switch (lang) {
         case 'kn':
-          prompt = 'ನಿಮ್ಮ ಕೆಲಸ ಅಥವಾ ಅಧ್ಯಯನದಲ್ಲಿ ನೀವು ಬಳಸುವ ಮುಖ್ಯ ಉಪಕರಣಗಳು, ಸಾಫ್ಟ್‌ವೇರ್ ಅಥವಾ ಸಲಕರಣೆಗಳು ಯಾವುವು?';
-          trans = 'What specific tools, equipment, software, or systems do you use in your daily work or studies?';
+          prompt = `${prefix}ನಿಮ್ಮ ಕೆಲಸ ಅಥವಾ ಅಧ್ಯಯನದಲ್ಲಿ ನೀವು ಬಳಸುವ ಮುಖ್ಯ ಉಪಕರಣಗಳು, ಸಾಫ್ಟ್‌ವೇರ್ ಅಥವಾ ಸಲಕರಣೆಗಳು ಯಾವುವು?`;
+          trans = `${prefix}what specific tools, equipment, software, or systems do you use in your daily work or studies?`;
           break;
         case 'hi':
-          prompt = 'आप अपने काम या अध्ययन में मुख्य रूप से कौन-से टूल्स, उपकरण या सॉफ्टवेयर इस्तेमाल करते हैं?';
-          trans = 'What tools, equipment, or software do you use?';
+          prompt = `${prefix}आप अपने काम या अध्ययन में मुख्य रूप से कौन-से टूल्स, उपकरण या सॉफ्टवेयर इस्तेमाल करते हैं?`;
+          trans = `${prefix}what tools, equipment, or software do you use?`;
           break;
         default:
-          prompt = 'What specific tools, equipment, software platforms, or systems do you use in your work or studies?';
-          trans = 'What specific tools, equipment, software platforms, or systems do you use in your work or studies?';
+          prompt = `${prefix}what specific tools, equipment, software platforms, or systems do you use in your work or studies?`;
+          trans = `${prefix}what specific tools, equipment, software platforms, or systems do you use in your work or studies?`;
       }
 
       return {
@@ -947,7 +1052,7 @@ Rules:
         activeNodeId: 'profile_agent',
         reasoningStep: {
           step: 'Tooling & Implement Mapping',
-          observation: `Captured Occupation: "${this.slots.occupation}", Tenure: ${this.slots.experienceYears} Years.`,
+          observation: `Captured Occupation: "${this.slots.occupation}", Tenure: ${this.slots.experienceYears} Years for ${activeName || 'Citizen'}.`,
           deduplicationCheck: 'Tools slot is empty. Probing physical/digital implements.',
           decision: 'Inquire about daily equipment and tool usage',
           confidence: 95
@@ -959,19 +1064,20 @@ Rules:
     if (this.slots.aspiration === null) {
       let prompt = '';
       let trans = '';
+      const prefix = activeName ? `${activeName}, ` : '';
 
       switch (lang) {
         case 'kn':
-          prompt = 'ನಿಮ್ಮ ಭವಿಷ್ಯದ ವೃತ್ತಿಜೀವನ ಮತ್ತು ಆಕಾಂಕ್ಷೆಗಳೇನು? (ಉದಾಹರಣೆಗೆ: ಸಿವಿಲ್ ಸರ್ವೀಸಸ್/IAS/IPS, ಹೈ-ಟೆಕ್ ಕೌಶಲ್ಯಗಳು, ಅಥವಾ ಉದ್ಯಮ)?';
-          trans = 'What are your future career aspirations and goals (e.g. Civil Services/IAS/IPS, High-Tech skills, or Enterprise)?';
+          prompt = `${prefix}ನಿಮ್ಮ ಭವಿಷ್ಯದ ವೃತ್ತಿಜೀವನ ಮತ್ತು ಆಕಾಂಕ್ಷೆಗಳೇನು? (ಉದಾಹರಣೆಗೆ: ಸಿವಿಲ್ ಸರ್ವೀಸಸ್/IAS/IPS, ಹೈ-ಟೆಕ್ ಕೌಶಲ್ಯಗಳು, ಅಥವಾ ಉದ್ಯಮ)?`;
+          trans = `${prefix}what are your future career aspirations and goals (e.g. Civil Services/IAS/IPS, High-Tech skills, or Enterprise)?`;
           break;
         case 'hi':
-          prompt = 'आपके भविष्य के लक्ष्य और करियर आकांक्षाएं क्या हैं (जैसे: सिविल सेवा/IAS/IPS, तकनीकी कौशल, या अपना उद्यम)?';
-          trans = 'What are your career aspirations (e.g. Civil Services/IAS/IPS, Tech skills, or Enterprise)?';
+          prompt = `${prefix}आपके भविष्य के लक्ष्य और करियर आकांक्षाएं क्या हैं (जैसे: सिविल सेवा/IAS/IPS, तकनीकी कौशल, या अपना उद्यम)?`;
+          trans = `${prefix}what are your career aspirations (e.g. Civil Services/IAS/IPS, Tech skills, or Enterprise)?`;
           break;
         default:
-          prompt = 'What are your future career aspirations and goals (for example: Civil Services / IAS / IPS, advanced technical certifications, or leadership roles)?';
-          trans = 'What are your future career aspirations and goals?';
+          prompt = `${prefix}what are your future career aspirations and goals (for example: Civil Services / IAS / IPS, advanced technical certifications, or leadership roles)?`;
+          trans = `${prefix}what are your future career aspirations and goals?`;
       }
 
       return {
@@ -981,7 +1087,7 @@ Rules:
         activeNodeId: 'skill_mapping_agent',
         reasoningStep: {
           step: 'Aspirational Opportunity Probing',
-          observation: `Known Trade=${this.slots.occupation}, Exp=${this.slots.experienceYears}yr, Tools=${this.slots.toolsEquipment}.`,
+          observation: `Known Trade=${this.slots.occupation}, Exp=${this.slots.experienceYears}yr, Tools=${this.slots.toolsEquipment} for ${activeName || 'Citizen'}.`,
           deduplicationCheck: 'Capturing forward-looking skilling interest for scheme matching.',
           decision: 'Inquire about desired career aspirations',
           confidence: 94
@@ -989,7 +1095,7 @@ Rules:
       };
     }
 
-    // All 4 Slots Filled: Formulate Verbatim Read-back
+    // All Slots Filled: Formulate Verbatim Read-back with candidate name
     const occ = this.slots.occupation;
     const exp = this.slots.experienceYears;
     const tools = this.slots.toolsEquipment;
@@ -997,19 +1103,20 @@ Rules:
 
     let readback = '';
     let trans = '';
+    const nameGreeting = activeName ? `${activeName}, ` : '';
 
     switch (lang) {
       case 'kn':
-        readback = `ನೀವು ${exp} ವರ್ಷಗಳ ಅನುಭವದೊಂದಿಗೆ "${occ}" ಕೆಲಸ ಮಾಡುತ್ತಿದ್ದೀರಿ, "${tools}" ಬಳಸುತ್ತೀರಿ ಮತ್ತು "${asp}" ಗುರಿ ಹೊಂದಿದ್ದೀರಿ ಎಂದು ನಾನು ಅರ್ಥಮಾಡಿಕೊಂಡಿದ್ದೇನೆ. ಇದು ಸರಿಯೇ?`;
-        trans = `I understood that you have ${exp} years of experience in ${occ}, use ${tools}, and aspire towards ${asp}. Is this correct?`;
+        readback = `${nameGreeting}ನೀವು ${exp} ವರ್ಷಗಳ ಅನುಭವದೊಂದಿಗೆ "${occ}" ಕೆಲಸ ಮಾಡುತ್ತಿದ್ದೀರಿ, "${tools}" ಬಳಸುತ್ತೀರಿ ಮತ್ತು "${asp}" ಗುರಿ ಹೊಂದಿದ್ದೀರಿ ಎಂದು ನಾನು ಅರ್ಥಮಾಡಿಕೊಂಡಿದ್ದೇನೆ. ಇದು ಸರಿಯೇ?`;
+        trans = `${nameGreeting}I understood that you have ${exp} years of experience in ${occ}, use ${tools}, and aspire towards ${asp}. Is this correct?`;
         break;
       case 'hi':
-        readback = `मैंने समझा कि आपके पास ${exp} वर्षों के अनुभव के साथ "${occ}" की पृष्ठभूमि है, आप "${tools}" का उपयोग करते हैं, और "${asp}" का लक्ष्य रखते हैं। क्या यह सही है?`;
-        trans = `I understood that you have ${exp} years of experience in ${occ}, use ${tools}, and aspire towards ${asp}. Is this correct?`;
+        readback = `${nameGreeting}मैंने समझा कि आपके पास ${exp} वर्षों के अनुभव के साथ "${occ}" की पृष्ठभूमि है, आप "${tools}" का उपयोग करते हैं, और "${asp}" का लक्ष्य रखते हैं। क्या यह सही है?`;
+        trans = `${nameGreeting}I understood that you have ${exp} years of experience in ${occ}, use ${tools}, and aspire towards ${asp}. Is this correct?`;
         break;
       default:
-        readback = `I understood that you have ${exp} years of experience in ${occ}, utilize ${tools}, and aspire towards ${asp}. Is this correct?`;
-        trans = `I understood that you have ${exp} years of experience in ${occ}, utilize ${tools}, and aspire towards ${asp}. Is this correct?`;
+        readback = `${nameGreeting}I understood that you have ${exp} years of experience in ${occ}, utilize ${tools}, and aspire towards ${asp}. Is this correct?`;
+        trans = `${nameGreeting}I understood that you have ${exp} years of experience in ${occ}, utilize ${tools}, and aspire towards ${asp}. Is this correct?`;
     }
 
     return {
@@ -1020,7 +1127,7 @@ Rules:
       isReadbackPrompt: true,
       reasoningStep: {
         step: 'Read-Back Verification Synthesis',
-        observation: 'All 4 required skill mapping slots fully extracted.',
+        observation: `All required skill mapping slots fully extracted for ${activeName || 'Citizen'}.`,
         deduplicationCheck: 'Formulating verbatim recap in citizen native language for explicit sign-off.',
         decision: 'Present Read-Back Confirmation Modal with YES/NO actions',
         confidence: 98
@@ -1029,6 +1136,7 @@ Rules:
   }
 
   private determineNextState(): ConversationState {
+    if (!this.slots.citizenName) return 'INTERVIEW_NAME_LOCATION';
     if (this.slots.experienceYears === null) return 'INTERVIEW_EXPERIENCE';
     if (this.slots.toolsEquipment === null) return 'INTERVIEW_TOOLS_ACTIVITIES';
     if (this.slots.aspiration === null) return 'INTERVIEW_ASPIRATION';
@@ -1092,7 +1200,7 @@ Rules:
 
   public detectName(text: string): string | null {
     const t = text.trim();
-    // Patterns like: "My name is Vivek", "I am Vivek", "I'm Vivek", "This is Vivek", "Hi Vivek", "Hello Vivek", "ನನ್ನ ಹೆಸರು ವಿವೇಕ್", "ಹೆಸರು ವಿವೇಕ್", "ನಾನು ವಿವೇಕ್", "मेरा नाम विवेक है", "नाम विवेक है"
+    // 1. Regex patterns: "My name is Vivek", "I am Vivek", "This is Vivek", "Hi Vivek", "ನನ್ನ ಹೆಸರು ವಿವೇಕ್", "मेरा नाम विवेक है"
     const nameRegex = /(?:my name is|i am|i'm|this is|call me|name is|ಹೆಸರು|ನನ್ನ ಹೆಸರು|ನಾನು|नाम है|मेरा नाम|नाम|hi|hello)\s+([A-Za-z\u0C80-\u0CFF\u0900-\u097F]+)/i;
     const match = t.match(nameRegex);
     if (match && match[1]) {
@@ -1102,6 +1210,61 @@ Rules:
       if (!blacklist.includes(lower) && candidate.length >= 2) {
         return candidate.charAt(0).toUpperCase() + candidate.slice(1);
       }
+    }
+
+    // 2. Direct 1-2 word name input (e.g. "Vijay", "Vivek", "Basavaraj Patil", "Lakshmi Bai")
+    const words = t.split(/\s+/);
+    if (words.length >= 1 && words.length <= 2) {
+      const w1 = words[0].toLowerCase().replace(/[^a-zA-Z\u0C80-\u0CFF\u0900-\u097F]/g, '');
+      const blacklist = ['hi', 'hello', 'hey', 'start', 'beginning', 'yes', 'no', 'reset', 'restart', 'good', 'morning', 'ok', 'okay', 'namaste', 'namaskara', 'vanakkam', 'ನಮಸ್ಕಾರ', 'नमस्ते', 'work', 'study', 'trade'];
+      if (!blacklist.includes(w1) && w1.length >= 2) {
+        return words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+      }
+    }
+    return null;
+  }
+
+  public detectLocation(text: string): string | null {
+    const t = text.trim();
+    const commonLocations = [
+      'Bengaluru', 'Bangalore', 'Kalaburagi', 'Gulbarga', 'Mysuru', 'Mysore', 'Hubballi', 'Hubli',
+      'Belagavi', 'Belgaum', 'Dharwad', 'Mangaluru', 'Mangalore', 'Shivamogga', 'Udupi', 'Ballari',
+      'Bellary', 'Vijayapura', 'Bijapur', 'Tumakuru', 'Tumkur', 'Raichur', 'Bidar', 'Davangere',
+      'Hassan', 'Mandya', 'Chikkamagaluru', 'Kolar', 'Hyderabad', 'Chennai', 'Mumbai', 'Pune', 'Delhi'
+    ];
+    for (const loc of commonLocations) {
+      if (t.toLowerCase().includes(loc.toLowerCase())) {
+        return `${loc}, Karnataka Hub`;
+      }
+    }
+    const locRegex = /(?:from|in|at|city|district|living in|stays in|ಬೆಂಗಳೂರು|ಕಲಬುರಗಿ|ಮೈಸೂರು|ಹುಬ್ಬಳ್ಳಿ|ಬೆಳಗಾವಿ|ಧಾರವಾಡ|ಮಂಗಳೂರು|ಶಿವಮೊಗ್ಗ|ಉಡುಪಿ|ಬಳ್ಳಾರಿ|विजयपुर|బెంగళూరు|నగరం|హైదరాబాద్|చెన్నై|पुणे|दिल्ली)\s+([A-Za-z\u0C80-\u0CFF\u0900-\u097F]+)/i;
+    const match = t.match(locRegex);
+    if (match && match[1]) {
+      const cand = match[1].trim();
+      if (cand.length >= 3) return `${cand}, India`;
+    }
+    return null;
+  }
+
+  public detectEducation(text: string): string | null {
+    const t = text.toLowerCase();
+    if (t.includes('engineering') || t.includes('b.e') || t.includes('btech') || t.includes('b.tech') || t.includes('mtech') || t.includes('m.tech') || t.includes('bachelor of engineering')) {
+      return 'Bachelor of Engineering (B.E. / B.Tech)';
+    }
+    if (t.includes('degree') || t.includes('graduate') || t.includes('graduation') || t.includes('b.sc') || t.includes('bsc') || t.includes('b.com') || t.includes('bcom') || t.includes('ba ') || t.includes('b.a')) {
+      return 'Undergraduate University Degree';
+    }
+    if (t.includes('diploma') || t.includes('polytechnic')) {
+      return 'Technical Diploma';
+    }
+    if (t.includes('iti') || t.includes('vocational')) {
+      return 'ITI Vocational Certificate';
+    }
+    if (t.includes('12th') || t.includes('puc') || t.includes('inter') || t.includes('higher secondary')) {
+      return 'Higher Secondary (12th / PUC)';
+    }
+    if (t.includes('10th') || t.includes('sslc') || t.includes('matric') || t.includes('secondary school')) {
+      return 'Secondary School (10th / SSLC)';
     }
     return null;
   }
@@ -1400,13 +1563,16 @@ Respond with strict JSON matching this schema:
               if (parsed.occupation && parsed.currentSkills && parsed.matchedPrograms && parsed.matchedPrograms.length > 0) {
                 parsed.id = parsed.id || `profile-${Date.now()}`;
                 parsed.citizenName = parsed.citizenName || this.slots.citizenName || (lang === 'kn' ? 'ಅರ್ಜಿದಾರ (Citizen)' : lang === 'hi' ? 'नागरिक (Citizen)' : 'Applicant (Citizen)');
+                parsed.location = parsed.location || this.slots.location || 'Karnataka Hub';
+                parsed.education = parsed.education || this.slots.education || 'Higher Secondary / Degree Foundation';
                 parsed.isConfirmed = true;
                 parsed.confirmedAt = new Date().toISOString();
                 parsed.matchedPrograms = parsed.matchedPrograms.map((p: any) => ({
                   ...p,
                   officialPortalUrl: sanitizeOfficialPortalUrl(p.officialPortalUrl, p.title)
                 }));
-                return parsed as LivelihoodProfile;
+                const saved = databaseService.saveBeneficiary(parsed as LivelihoodProfile);
+                return saved.profile;
               }
             }
           } catch (modelErr) {
@@ -1437,7 +1603,7 @@ Respond with strict JSON matching this schema:
               {
                 role: 'system',
                 content: `You are the Chief NSQF Skill Architect of India. Generate a 100% customized JSON LivelihoodProfile for:
-Trade: ${occ}, Experience: ${exp} yrs, Tools: ${rawTools}, Aspiration: ${asp}.
+Candidate Name: ${this.slots.citizenName || 'Citizen'}, Location: ${this.slots.location || 'Karnataka'}, Trade: ${occ}, Experience: ${exp} yrs, Tools: ${rawTools}, Aspiration: ${asp}.
 Include: id, citizenName, occupation, experienceYears, education, location, currentSkills (array with name & icon), structuredCategories, toolsEquipment, targetAspiration, mappingConfidence, evidences, skillGap (currentSkills, targetCapability, gapSkills), matchedPrograms (title, provider, category, eligibility, matchPercentage, rankBadge, whyMatched, aiExplanation, skillsGained, duration, mode, stipend, toolkitGrant, loanSupport, officialPortalUrl, matchFactors), roadmap (3 steps), isConfirmed: true, confirmedAt.`
               },
               { role: 'user', content: 'Output the full JSON profile.' }
@@ -1453,13 +1619,16 @@ Include: id, citizenName, occupation, experienceYears, education, location, curr
           if (parsed.occupation && parsed.currentSkills && parsed.matchedPrograms && parsed.matchedPrograms.length > 0) {
             parsed.id = parsed.id || `profile-${Date.now()}`;
             parsed.citizenName = parsed.citizenName || this.slots.citizenName || (lang === 'kn' ? 'ಅರ್ಜಿದಾರ (Citizen)' : lang === 'hi' ? 'नागरिक (Citizen)' : 'Applicant (Citizen)');
+            parsed.location = parsed.location || this.slots.location || 'Karnataka Hub';
+            parsed.education = parsed.education || this.slots.education || 'Higher Secondary / Degree Foundation';
             parsed.isConfirmed = true;
             parsed.confirmedAt = new Date().toISOString();
             parsed.matchedPrograms = parsed.matchedPrograms.map((p: any) => ({
               ...p,
               officialPortalUrl: sanitizeOfficialPortalUrl(p.officialPortalUrl, p.title)
             }));
-            return parsed as LivelihoodProfile;
+            const saved = databaseService.saveBeneficiary(parsed as LivelihoodProfile);
+            return saved.profile;
           }
         }
       } catch (grokErr) {
@@ -1848,13 +2017,13 @@ Include: id, citizenName, occupation, experienceYears, education, location, curr
 
     const citizenName = this.slots.citizenName || (isKn ? 'ಅರ್ಜಿದಾರ (Citizen)' : isHi ? 'नागरिक (Citizen)' : 'Applicant (Citizen)');
 
-    return {
+    const resultProfile: LivelihoodProfile = {
       id: `profile-${Date.now()}`,
       citizenName,
       occupation: occ,
       experienceYears: exp,
-      education,
-      location: 'Karnataka Hub',
+      education: this.slots.education || education,
+      location: this.slots.location || 'Karnataka Hub',
       currentSkills,
       structuredCategories,
       toolsEquipment: parsedTools,
@@ -1867,6 +2036,9 @@ Include: id, citizenName, occupation, experienceYears, education, location, curr
       isConfirmed: true,
       confirmedAt: new Date().toLocaleTimeString()
     };
+
+    const saved = databaseService.saveBeneficiary(resultProfile);
+    return saved.profile;
   }
 
   public buildCompleteProfile(lang: SupportedLanguage, _partial?: Partial<LivelihoodProfile>): LivelihoodProfile {
